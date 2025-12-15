@@ -1,0 +1,8 @@
+(sym_lib_table
+  (version 7)
+  (lib (name "Seeed_Studio_XIAO_Series")(type "KiCad")(uri "${KIPRJMOD}/symbols/Seeed_Studio_XIAO_Series.kicad_sym")(options "")(descr ""))
+  (lib (name "SFH_4544")(type "KiCad")(uri "${KIPRJMOD}/symbols/SFH_4544.kicad_sym")(options "")(descr ""))
+  (lib (name "tsop4838")(type "KiCad")(uri "${KIPRJMOD}/symbols/tsop4838.kicad_sym")(options "")(descr ""))
+  (lib (name "TFT_Round_1_28_Serial")(type "KiCad")(uri "${KIPRJMOD}/symbols/TFT_Round_1_28_Serial.kicad_sym")(options "")(descr ""))
+  (lib (name "SSD1306OLED")(type "Legacy")(uri "${KIPRJMOD}/symbols/SSD1306-128x64_OLED.lib")(options "")(descr ""))
+)

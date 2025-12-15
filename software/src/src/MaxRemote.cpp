@@ -151,3 +151,18 @@ void MaxRemote::sendSignal(bool autoMode, int temperature, int fanSpeed, bool li
   // Send the constructed signal.
   sendRawFromSignal(finalSignal);
 }
+
+// Send raw IR data directly (for re-emitting received signals)
+void MaxRemote::sendRaw(const uint16_t* rawData, uint16_t length, uint16_t frequency) {
+  irsend.sendRaw(rawData, length, frequency);
+}
+
+// Reverse lookup temperature from pattern (for decoding received commands)
+int MaxRemote::getTemperatureFromPattern(uint8_t pattern) {
+  for (int i = 0; i < numTempMappings; i++) {
+    if (temperatureMappings[i].pattern == pattern) {
+      return temperatureMappings[i].temp;
+    }
+  }
+  return 20; // Default if not found
+}

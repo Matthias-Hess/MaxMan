@@ -102,6 +102,12 @@ class MaxRemote {
     // off: true to send the off signal (overrides most parameters)
     void sendSignal(bool autoMode, int temperature, int fanSpeed, bool lidOpen, bool airIn, bool off);
 
+    // Send raw IR data directly (used for re-emitting received signals)
+    void sendRaw(const uint16_t* rawData, uint16_t length, uint16_t frequency);
+
+    // Reverse lookup temperature from a 7-bit pattern
+    static int getTemperatureFromPattern(uint8_t pattern);
+
   private:
     IRsend irsend;
     String uint7ToBinaryString(uint8_t val);

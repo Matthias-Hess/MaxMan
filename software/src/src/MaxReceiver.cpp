@@ -1,4 +1,5 @@
 #include "MaxReceiver.h"
+#include "MaxRemote.h"  // For getTemperatureFromPattern
 using namespace MaxFan;
 
 #include <stdlib.h>  // for strtol
@@ -175,10 +176,11 @@ int decodeSpeed(const String &speedStr) {
   }
 }
 
-// Decodes the 7-bit temperature field.
-// (If your protocol requires bit reversal/inversion, implement that logic here.)
+// Decodes the 7-bit temperature field by reverse lookup.
 int decodeTemperature(const String &tempStr) {
-  return binaryStringToInt(tempStr);
+  int tempPattern = binaryStringToInt(tempStr);
+  // Use MaxRemote's reverse lookup function
+  return MaxRemote::getTemperatureFromPattern(tempPattern);
 }
 
 // --- printCommand() ---
