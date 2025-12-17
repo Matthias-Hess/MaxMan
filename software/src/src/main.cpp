@@ -5,6 +5,7 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+#include <RotaryEncoder.h>
 
 // Instantiate the MaxRemote object on pin 2 (IR LED pin)
 MaxRemote fanRemote(2);
@@ -20,9 +21,8 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 
 // Rotary encoder pins (per user wiring)
 const uint8_t ENCODER_PIN_A = 4;  // GPIO4
-const uint8_t ENCODER_PIN_B = 3;  // GPIO3
-volatile long encoderPosition = 0;
-int lastAState = 1;
+const uint8_t ENCODER_PIN_B = 5;  // GPIO5
+RotaryEncoder encoder(ENCODER_PIN_A, ENCODER_PIN_B, RotaryEncoder::LatchMode::FOUR3);
 
 void drawEncoderValue(long value) {
   display.clearDisplay();
@@ -184,18 +184,15 @@ void setup() {
     for (;;); // Don't proceed, loop forever
   }
   
-  // Initialize rotary encoder pins
+  // Initialize rotary encoder
   pinMode(ENCODER_PIN_A, INPUT_PULLUP);
   pinMode(ENCODER_PIN_B, INPUT_PULLUP);
-  lastAState = digitalRead(ENCODER_PIN_A);
-  
+  encoder.setPosition(0);
+
   // Show initial encoder value
   drawEncoderValue(0);
   Serial.println("OLED display initialized with encoder value");
-  Serial.print("Initial encoder pin states: A=");
-  Serial.print(digitalRead(ENCODER_PIN_A));
-  Serial.print(" B=");
-  Serial.println(digitalRead(ENCODER_PIN_B));
+
   
   // Initialize IR receiver
   fanReceiver.begin();
@@ -284,42 +281,17 @@ void loop() {
     fanReceiver.resume();
   }
 
-  // --- Rotary encoder handling (simple polling on A, using B for direction) ---
+  // --- Rotary encoder handling via RotaryEncoder library ---
   static long lastDisplayedValue = 0;
-  static unsigned long lastDebugTime = 0;
 
-  int aNow = digitalRead(ENCODER_PIN_A);
-  int bNow = digitalRead(ENCODER_PIN_B);
+  encoder.tick();                       // must be called frequently
+  long pos = encoder.getPosition();     // FOUR3: usually 1 step per detent
 
-  // On any edge of A, look at B to determine direction
-  if (aNow != lastAState) {
-    if (aNow == LOW) { // count on falling edge only to avoid double steps
-      if (bNow == HIGH) {
-        encoderPosition++;   // one direction
-      } else {
-        encoderPosition--;   // other direction
-      }
-    }
-    lastAState = aNow;
-  }
-
-  // Debug: print pin states and encoder position periodically
-  unsigned long now = millis();
-  if (now - lastDebugTime > 300) {
-    lastDebugTime = now;
-    Serial.print("Enc A=");
-    Serial.print(aNow);
-    Serial.print(" B=");
-    Serial.print(bNow);
-    Serial.print(" pos=");
-    Serial.println(encoderPosition);
-  }
-
-  // Update display if encoder value changed
-  if (encoderPosition != lastDisplayedValue) {
-    drawEncoderValue(encoderPosition);
-    lastDisplayedValue = encoderPosition;
-  }
-  
+  if (pos != lastDisplayedValue) {
+    //drawEncoderValue(pos);
+    lastDisplayedValue = pos;
+    Serial.print("Encoder pos=");
+    Serial.println(pos);
+  } 
   delay(10); // Small delay to prevent watchdog issues
 }
