@@ -5,7 +5,7 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
-#include <RotaryEncoder.h>
+#include "Encoder.h"
 
 // Instantiate the MaxRemote object on pin 2 (IR LED pin)
 MaxRemote fanRemote(2);
@@ -22,7 +22,7 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 // Rotary encoder pins (per user wiring)
 const uint8_t ENCODER_PIN_A = 4;  // GPIO4
 const uint8_t ENCODER_PIN_B = 5;  // GPIO5
-RotaryEncoder encoder(ENCODER_PIN_A, ENCODER_PIN_B, RotaryEncoder::LatchMode::FOUR3);
+Encoder encoder(ENCODER_PIN_A, ENCODER_PIN_B);
 
 void drawEncoderValue(long value) {
   display.clearDisplay();
@@ -184,10 +184,9 @@ void setup() {
     for (;;); // Don't proceed, loop forever
   }
   
-  // Initialize rotary encoder
-  pinMode(ENCODER_PIN_A, INPUT_PULLUP);
-  pinMode(ENCODER_PIN_B, INPUT_PULLUP);
-  encoder.setPosition(0);
+  // Initialize rotary encoder (handles interrupts internally)
+  encoder.begin();
+  encoder.reset();  // Start at zero position
 
   // Show initial encoder value
   drawEncoderValue(0);
@@ -281,17 +280,17 @@ void loop() {
     fanReceiver.resume();
   }
 
-  // --- Rotary encoder handling via RotaryEncoder library ---
+  // --- Rotary encoder handling via custom Encoder class (interrupt-based) ---
   static long lastDisplayedValue = 0;
 
-  encoder.tick();                       // must be called frequently
-  long pos = encoder.getPosition();     // FOUR3: usually 1 step per detent
+  // Encoder is updated via interrupts internally - just read the position
+  long pos = encoder.getPosition();
 
   if (pos != lastDisplayedValue) {
-    //drawEncoderValue(pos);
+    drawEncoderValue(pos);
     lastDisplayedValue = pos;
     Serial.print("Encoder pos=");
     Serial.println(pos);
   } 
-  delay(10); // Small delay to prevent watchdog issues
+  
 }
