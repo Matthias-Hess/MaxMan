@@ -8,7 +8,7 @@ using namespace MaxFan;
 #define RECEIVER_TICK_US 400
 
 // --- Constructor ---
-MaxReceiver::MaxReceiver(uint8_t recvPin) : irrecv(recvPin) {
+MaxReceiver::MaxReceiver(uint8_t recvPin) : irrecv(recvPin), hasLastCommand(false) {
   // Constructor: IRrecv is initialized with the given pin.
 }
 
@@ -17,13 +17,31 @@ void MaxReceiver::begin() {
   irrecv.enableIRIn();  // Start the IR receiver.
 }
 
-// --- available() ---
-// Returns true if a new IR signal is available; fills 'results'.
-bool MaxReceiver::available() {
-  return irrecv.decode(&results);
+// --- getCommand() ---
+// Returns true if a new command was received and parsed successfully
+bool MaxReceiver::getCommand(MaxFanCommand& cmd) {
+  // Try to decode a new signal
+  if (!irrecv.decode(&results)) {
+    return false;  // No signal available
+  }
+  
+  // Convert raw data to bit string
+  String rawBitString = getBitString();
+  
+  // Parse the command into internal storage first
+  if (parseCommand(rawBitString, lastCommand)) {
+    hasLastCommand = true;
+    // Copy to caller's parameter
+    cmd = lastCommand;
+    resume();  // Prepare for next signal
+    return true;
+  } else {
+    resume();  // Still need to resume even if parse failed
+    return false;  // Parse failed
+  }
 }
 
-// --- getBitString() ---
+// --- getBitString() --- (private)
 // Converts the raw durations (in microseconds) into a binary string.
 // Uses RECEIVER_TICK_US as the conversion unit.
 String MaxReceiver::getBitString() {
@@ -59,7 +77,7 @@ String MaxReceiver::getBitString() {
   return bitString;
 }
 
-// --- parseCommand() ---
+// --- parseCommand() --- (private)
 // This version extracts only the essential fields: START, state (7 bits),
 // separator, speed (7 bits), separator, and temp (7 bits). The tail is ignored.
 bool MaxReceiver::parseCommand(const String &bitString, MaxFanCommand &cmd) {
@@ -96,44 +114,48 @@ bool MaxReceiver::parseCommand(const String &bitString, MaxFanCommand &cmd) {
   Serial.print("Final bit string length for parsing: ");
   Serial.println(trimmed.length());
   
-  int index = 0;
-  cmd.start = trimmed.substring(index, index + lenStart);
-  index += lenStart;
+  // Validate START sequence (but don't store it - it's a constant)
+  String startSeq = trimmed.substring(0, lenStart);
+  if (startSeq != String(MaxFan::START)) {
+    Serial.println("Start field does not match expected pattern.");
+    return false;
+  }
   
+  int index = lenStart;  // Skip START
+  
+  // Extract state (7 bits)
   cmd.state = trimmed.substring(index, index + 7);
   index += 7;
   
-  cmd.separator1 = trimmed.substring(index, index + lenSep);
+  // Validate and skip separator1 (but don't store it - it's a constant)
+  String sep1 = trimmed.substring(index, index + lenSep);
+  if (sep1 != String(MaxFan::SEPARATOR)) {
+    Serial.println("Separator1 does not match expected pattern.");
+    return false;
+  }
   index += lenSep;
   
+  // Extract speed (7 bits)
   cmd.speed = trimmed.substring(index, index + 7);
   index += 7;
   
-  cmd.separator2 = trimmed.substring(index, index + lenSep);
+  // Validate and skip separator2 (but don't store it - it's a constant)
+  String sep2 = trimmed.substring(index, index + lenSep);
+  if (sep2 != String(MaxFan::SEPARATOR)) {
+    Serial.println("Separator2 does not match expected pattern.");
+    return false;
+  }
   index += lenSep;
   
+  // Extract temp (7 bits)
   cmd.temp = trimmed.substring(index, index + 7);
   index += 7;
   
   // Debug: print parsed fields.
   Serial.println("Parsed essential fields:");
-  Serial.print("Start: "); Serial.println(cmd.start);
   Serial.print("State (binary): "); Serial.println(cmd.state);
-  Serial.print("Separator1: "); Serial.println(cmd.separator1);
   Serial.print("Speed (binary): "); Serial.println(cmd.speed);
-  Serial.print("Separator2: "); Serial.println(cmd.separator2);
   Serial.print("Temp (binary): "); Serial.println(cmd.temp);
-  
-  // Validate that START and separators match.
-  if (cmd.start != String(MaxFan::START)) {
-    Serial.println("Start field does not match expected pattern.");
-    return false;
-  }
-  if (cmd.separator1 != String(MaxFan::SEPARATOR) ||
-      cmd.separator2 != String(MaxFan::SEPARATOR)) {
-    Serial.println("Separator fields do not match expected pattern.");
-    return false;
-  }
   
   return true;
 }
@@ -183,14 +205,14 @@ int decodeTemperature(const String &tempStr) {
   return MaxRemote::getTemperatureFromPattern(tempPattern);
 }
 
-// --- printCommand() ---
+// --- MaxFanCommand::print() ---
 // Prints the decoded command in human-readable form.
-void MaxReceiver::printCommand(const MaxFanCommand &cmd) {
+void MaxFanCommand::print() const {
   Serial.println("Decoded MaxFan Command:");
   
-  String stateDesc = decodeState(cmd.state);
-  int speedPercent = decodeSpeed(cmd.speed);
-  int temperature = decodeTemperature(cmd.temp);
+  String stateDesc = decodeState(state);
+  int speedPercent = decodeSpeed(speed);
+  int temperature = decodeTemperature(temp);
   
   Serial.print("State: ");
   Serial.println(stateDesc);
@@ -208,12 +230,12 @@ void MaxReceiver::printCommand(const MaxFanCommand &cmd) {
   
   // Optionally, also print raw binary fields for reference.
   Serial.println("Raw binary fields:");
-  Serial.print("State: "); Serial.println(cmd.state);
-  Serial.print("Speed: "); Serial.println(cmd.speed);
-  Serial.print("Temp: "); Serial.println(cmd.temp);
+  Serial.print("State: "); Serial.println(state);
+  Serial.print("Speed: "); Serial.println(speed);
+  Serial.print("Temp: "); Serial.println(temp);
 }
 
-// --- resume() ---
+// --- resume() --- (private)
 // Prepares the IR receiver for the next signal.
 void MaxReceiver::resume() {
   irrecv.resume();

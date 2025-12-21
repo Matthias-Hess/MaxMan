@@ -1,4 +1,6 @@
 #include "MaxRemote.h"
+#include "MaxReceiver.h"
+#include <stdlib.h>  // for strtol
 using namespace MaxFan;
 // Constructor: Initialize the IRsend instance with the given pin.
 MaxRemote::MaxRemote(uint8_t irPin) : irsend(irPin) { }
@@ -165,4 +167,44 @@ int MaxRemote::getTemperatureFromPattern(uint8_t pattern) {
     }
   }
   return 20; // Default if not found
+}
+
+// Helper: Convert binary string to uint8_t
+static uint8_t binaryStringToUint8(const String &binStr) {
+  return (uint8_t)strtol(binStr.c_str(), NULL, 2);
+}
+
+// Send IR command from MaxFanCommand structure (canonical format)
+void MaxRemote::sendCommand(const MaxFanCommand& cmd) {
+  // Convert binary strings to integers for checksum calculation
+  uint8_t state = binaryStringToUint8(cmd.state);
+  uint8_t speed = binaryStringToUint8(cmd.speed);
+  uint8_t tempVal = binaryStringToUint8(cmd.temp);
+  
+  // Calculate checksum:
+  // For each bit (from leftmost, index 0):
+  // - For bits 0,1,5: checksum[i] = state[i] XOR speed[i] XOR temp[i]
+  // - For bits 2,3,4,6: checksum[i] = NOT (state[i] XOR speed[i] XOR temp[i])
+  uint8_t checksum = 0;
+  for (int i = 0; i < 7; i++) {
+    uint8_t sbit = (state >> (6 - i)) & 1;
+    uint8_t fbit = (speed >> (6 - i)) & 1;
+    uint8_t tbit = (tempVal >> (6 - i)) & 1;
+    uint8_t xorVal = sbit ^ fbit ^ tbit;
+    if (i == 2 || i == 3 || i == 4 || i == 6) {
+      xorVal = (xorVal == 0) ? 1 : 0;
+    }
+    checksum |= (xorVal << (6 - i));
+  }
+  String checksumStr = uint7ToBinaryString(checksum);
+  
+  // Construct the complete binary signal from the command fields:
+  // START + state + SEPARATOR + speed + SEPARATOR + temp +
+  // SEPARATOR + UNKNOWN_FIELD + SEPARATOR + checksum + END
+  String finalSignal = String(START) + cmd.state + String(SEPARATOR) +
+                       cmd.speed + String(SEPARATOR) + cmd.temp + String(SEPARATOR) +
+                       String(UNKNOWN_FIELD) + String(SEPARATOR) + checksumStr + String(END);
+  
+  // Send the constructed signal.
+  sendRawFromSignal(finalSignal);
 }

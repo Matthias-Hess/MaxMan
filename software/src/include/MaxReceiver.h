@@ -20,19 +20,21 @@ static const int TEMP_LEN     = 7;
 static const int CHECKSUM_LEN = 7;
 static const int UNKNOWN_LEN  = 18;
 
+// Forward declarations for decode helper functions (defined in MaxReceiver.cpp)
+String decodeState(const String &stateStr);
+int decodeSpeed(const String &speedStr);
+int decodeTemperature(const String &tempStr);
+
 // Structure to hold a parsed MaxxFan command.
+// Only stores the actual data fields - constants (start, separators, unknown, end, checksum)
+// are reconstructed from MaxFanConstants when emitting.
 struct MaxFanCommand {
-  String start;
-  String state;
-  String separator1;
-  String speed;
-  String separator2;
-  String temp;
-  String separator3;
-  String unknown;
-  String separator4;
-  String checksum;
-  String end;
+  String state;   // 7-bit binary string
+  String speed;   // 7-bit binary string
+  String temp;    // 7-bit binary string
+  
+  // Print the command in human-readable form (for debugging)
+  void print() const;
 };
 
 class MaxReceiver {
@@ -43,26 +45,26 @@ class MaxReceiver {
     // Initialize the IR receiver (call this in setup())
     void begin();
 
-    // Check if a new IR signal has been received.
-    // This function calls irrecv.decode() and returns true if a signal is available.
-    bool available();
-
-    // Convert the raw received IR signal into a binary string.
-    // This uses the TICK_US constant to approximate how many "ticks" each duration represents.
-    String getBitString();
-
-    // Parse a given bit string into its constituent command fields.
-    // Returns true if parsing is successful (i.e. the expected separators, start, and end are found).
-    bool parseCommand(const String &bitString, MaxFanCommand &cmd);
-
-    // Print the parsed command fields to Serial.
-    void printCommand(const MaxFanCommand &cmd);
-
-    // Resume the IR receiver to be ready for the next signal.
-    void resume();
-    decode_results results;
+    // Get the latest received command, if available
+    // This handles decoding, parsing, and resume internally
+    // 
+    // Returns true if a new command was received and parsed successfully, false otherwise.
+    // If true, the command is copied into the provided reference parameter.
+    // Returns false in the vast majority of cases (no signal received).
+    bool getCommand(MaxFanCommand& cmd);
+    
   private:
     IRrecv irrecv;
+    decode_results results;
+    
+    // Internal storage for the last parsed command
+    MaxFanCommand lastCommand;
+    bool hasLastCommand;
+    
+    // Internal helper methods
+    String getBitString();
+    bool parseCommand(const String &bitString, MaxFanCommand &cmd);
+    void resume();
     
 };
 

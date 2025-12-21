@@ -6,6 +6,9 @@
 #include <IRsend.h>
 #include <MaxFanConstants.h>
 
+// Forward declaration
+struct MaxFanCommand;
+
 #define TICK_US 800
 
 // --- Predefined Bit Patterns (7 bits each) ---
@@ -104,6 +107,9 @@ class MaxRemote {
 
     // Send raw IR data directly (used for re-emitting received signals)
     void sendRaw(const uint16_t* rawData, uint16_t length, uint16_t frequency);
+
+    // Send IR command from MaxFanCommand structure (canonical format)
+    void sendCommand(const struct MaxFanCommand& cmd);
 
     // Reverse lookup temperature from a 7-bit pattern
     static int getTemperatureFromPattern(uint8_t pattern);
