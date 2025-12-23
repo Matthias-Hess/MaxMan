@@ -65,7 +65,7 @@ bool MaxReceiver::parseToBytes(uint8_t* output16Bytes) {
     
    
     if (duration < threshold) {
-      // Serial.println("IGNORED" );
+      Serial.println("IGNORED" );
       continue;
     }
 
@@ -75,7 +75,7 @@ bool MaxReceiver::parseToBytes(uint8_t* output16Bytes) {
     for (int j = 0; j < ticks; j++) {
 
       if (bitInFrame == 0 && currentBit) {
-        // Serial.printf ("startbit != 0 on idx %d", byteCount);
+        Serial.printf ("startbit != 0 on idx %d", byteCount);
         return false; 
       }
       
@@ -88,7 +88,7 @@ bool MaxReceiver::parseToBytes(uint8_t* output16Bytes) {
 
       // 3. Stopbits (9-10)
       if ((bitInFrame == 9 || bitInFrame == 10) && !currentBit) {
-        // Serial.printf("stopbit != 1 on idx %d", byteCount);
+        Serial.printf("stopbit != 1 on idx %d", byteCount);
         return false;
       }
       bitInFrame++;
@@ -126,18 +126,26 @@ bool MaxReceiver::parseToBytes(uint8_t* output16Bytes) {
   // Daten sollten jetzt korrigiert sein
   uint8_t xorVal = output16Bytes[10] ^ output16Bytes[11] ^ output16Bytes[12] ^ output16Bytes[13] ^ output16Bytes[14];
   if (output16Bytes[15] != xorVal){
-    // Serial.println("--checksum--");
-    // Serial.println(output16Bytes[10], BIN);
-    // Serial.println(output16Bytes[11], BIN);
-    // Serial.println(output16Bytes[12], BIN);
-    // Serial.println(output16Bytes[13], BIN);
-    // Serial.println(output16Bytes[14], BIN);
-    // Serial.println("-----");
-    // Serial.println(output16Bytes[15], BIN);
-    // Serial.println(xorVal, BIN);
-    // Serial.flush();
+    Serial.println("--checksum--");
+    Serial.println(output16Bytes[10], BIN);
+    Serial.println(output16Bytes[11], BIN);
+    Serial.println(output16Bytes[12], BIN);
+    Serial.println(output16Bytes[13], BIN);
+    Serial.println(output16Bytes[14], BIN);
+    Serial.println("-----");
+    Serial.println(output16Bytes[15], BIN);
+    Serial.println(xorVal, BIN);
+    Serial.flush();
     return false;
   } else {
+    Serial.printf("STATE:");
+    Serial.print(output16Bytes[10], BIN);
+    Serial.printf("SPEED:");
+    Serial.print(output16Bytes[11]);
+    Serial.printf("TEMP:");
+    Serial.print(output16Bytes[12]);
+    
+
     // Serial.println("PARSE OK");
     // Serial.println("PARSE OK");
     // Serial.println("PARSE OK");
