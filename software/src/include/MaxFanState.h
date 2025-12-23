@@ -4,6 +4,9 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 
+enum class MaxFanMode { OFF, AUTO, MANUAL };
+enum class MaxFanDirection { IN, OUT };
+
 // Canonical command/state representation for MaxxFan
 // Core: 3 bytes (state, speed, temp) stored as 7-bit patterns
 class MaxFanState {
@@ -20,25 +23,25 @@ public:
   String ToJson() const;
   
   // State mode accessors
-  String GetState() const;  // Returns "MANUAL", "AUTO", or "OFF"
-  bool SetState(const String& mode);  // Returns true if valid mode set
+  MaxFanMode GetMode() const;  // Returns "MANUAL", "AUTO", or "OFF"
+  void SetMode(MaxFanMode mode);
   
   // Temperature accessors (for AUTO mode) - works with Celsius
   // Note: Internal storage uses protocol pattern, conversion via lookup table
   int GetTempCelsius() const;
   bool SetTempCelsius(int tempCelsius);  // Returns true if valid temp set
   
-  // Speed accessors (for MANUAL mode) - 1-10 scale (1=10%, 2=20%, ..., 10=100%)
-  int GetSpeed() const;  // Returns 1-10
-  bool SetSpeed(int speed);  // Valid range: 1-10, returns true if valid
+  
+  int GetSpeed() const;  // Returns 10-100
+  void SetSpeed(int speed);  // Valid range: 10-100
   
   // Cover/lid state accessors
   bool GetCoverOpen() const;
   void SetCoverOpen(bool open);
   
   // Air flow direction accessors
-  String GetAirFlow() const;  // Returns "IN" or "OUT"
-  bool SetAirFlow(const String& direction);  // Returns true if valid direction set
+  MaxFanDirection GetAirFlow() const;  
+  void SetAirFlow(MaxFanDirection direction);  // Returns true if valid direction set
   
   // Direct byte accessors (for IR emission)
   uint8_t GetStateByte() const { return stateByte; }
@@ -52,14 +55,13 @@ public:
 private:
   // Core storage
   uint8_t stateByte;  // 7-bit state pattern
-  uint8_t speedByte;  // 7-bit speed pattern
-  int8_t tempFahrenheit;  // Temperature in Fahrenheit (signed: -4 to 99 covers -2°C to 37°C)
+  uint8_t speedByte;  // speed (10, 20, 30, .. 100)
+  uint8_t tempFahrenheit;  // Temperature in Fahrenheit
   
-  // Helper methods for encoding/decoding
-  void encodeState(const String& mode, bool coverOpen, bool airIn, bool off);
-  void decodeState(String& mode, bool& coverOpen, bool& airIn, bool& off) const;
-  uint8_t speedToPattern(int speed1to10) const;  // Convert 1-10 to pattern
-  int patternToSpeed(uint8_t pattern) const;      // Convert pattern to 1-10
+  
+  
+  
+  
 };
 
 #endif // MAXFANSTATE_H

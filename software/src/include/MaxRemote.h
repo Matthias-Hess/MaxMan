@@ -39,51 +39,7 @@ struct TempMapping {
   uint8_t pattern;
 };
 
-// Temperature mappings for -2°C to 37°C
-static const TempMapping temperatureMappings[] = {
-  { -2, 0b0100011 },
-  { -1, 0b0000011 },
-  {  0, 0b1111101 },
-  {  1, 0b0111101 },
-  {  2, 0b0011101 },
-  {  3, 0b0101101 },
-  {  4, 0b0001101 },
-  {  5, 0b0110101 },
-  {  6, 0b1010101 },
-  {  7, 0b1100101 },
-  {  8, 0b1000101 },
-  {  9, 0b1111001 },
-  { 10, 0b1011001 },
-  { 11, 0b0011001 },
-  { 12, 0b0101001 },
-  { 13, 0b0001001 },
-  { 14, 0b0110001 },
-  { 15, 0b0010001 },
-  { 16, 0b1100001 },
-  { 17, 0b1000001 },
-  { 18, 0b1111110 },
-  { 19, 0b1011110 },
-  { 20, 0b1101110 },
-  { 21, 0b0101110 },
-  { 22, 0b0001110 },
-  { 23, 0b0110110 },
-  { 24, 0b0010110 },
-  { 25, 0b0100110 },
-  { 26, 0b1000110 },
-  { 27, 0b1111010 },
-  { 28, 0b1011010 },
-  { 29, 0b1101010 },
-  { 30, 0b1001010 },
-  { 31, 0b0001010 },
-  { 32, 0b0110010 },
-  { 33, 0b0010010 },
-  { 34, 0b0100010 },
-  { 35, 0b0000010 },
-  { 36, 0b1111100 },
-  { 37, 0b1011100 }
-};
 
-static const int numTempMappings = sizeof(temperatureMappings) / sizeof(temperatureMappings[0]);
 
 
 
@@ -109,7 +65,7 @@ class MaxRemote {
     void sendRaw(const uint16_t* rawData, uint16_t length, uint16_t frequency);
 
     // Send IR command from MaxFanCommand structure (canonical format)
-    void sendCommand(const struct MaxFanCommand& cmd);
+    void sendCommand(const struct MaxFanState& cmd);
 
     // Reverse lookup temperature from a 7-bit pattern
     static int getTemperatureFromPattern(uint8_t pattern);

@@ -2,20 +2,23 @@
 #include <MaxRemote.h>
 #include <MaxReceiver.h>
 #include <MaxFanBLE.h>
-#include <FanStateConverter.h>
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #include "Encoder.h"
-
+#include <MaxFanState.h>
 
 MaxRemote fanRemote(2);
-MaxReceiver fanReceiver(3);  // TSOP4838 wired to GPIO3
+ 
 MaxFanBLE fanBLE;
 
-// Store the current command as canonical format (MaxFanCommand)
+// Store the current command as canonical format (MaxFanState)
 // This is the single source of truth for IR commands
-MaxFanCommand currentCommand;
+MaxFanState maxFanState;
+
+ // TSOP4838 wired to GPIO3
+MaxReceiver fanReceiver(3);
+
 bool hasCurrentCommand = false;
 
 // OLED Display setup (0.96 inch SSD1306)
@@ -47,12 +50,8 @@ void drawEncoderValue(long value) {
 void onBLECommand(const FanState& state) {
   Serial.println("BLE command received, converting and sending IR signal...");
   
-  MaxFanCommand cmd = fanStateToCommand(state);
-  currentCommand = cmd;
-  hasCurrentCommand = true;
-  
-  fanRemote.sendCommand(cmd);
-  Serial.println("IR signal sent");
+
+  Serial.println("IR NOT signal sent");
 }
 
 
@@ -131,23 +130,11 @@ void loop() {
   // BLE commands are handled via callback in onBLECommand()
   
   // Handle IR signals
-  MaxFanCommand cmd;
-  if (fanReceiver.getCommand(cmd)) {
-    Serial.println("\n=== IR Signal Received ===");
-    cmd.print();
-    
-    // Store as canonical format
-    currentCommand = cmd;
-    hasCurrentCommand = true;
-    
-    // Update BLE state
-    FanState receivedState = commandToFanState(cmd);
-    fanBLE.setState(receivedState);
-    
-    // Re-emit IR signal
-    fanRemote.sendCommand(cmd);
-    Serial.println("========================\n");
+
+  if(fanReceiver.update(maxFanState)){
+    Serial.println(maxFanState.ToJson());
   }
+
 
   // --- Rotary encoder handling via custom Encoder class (interrupt-based) ---
   static long lastDisplayedValue = 0;

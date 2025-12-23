@@ -2,24 +2,48 @@
 #include "MaxRemote.h"  // For pattern constants and temperature mappings
 #include <stdlib.h>  // for strtol
 
-// Constants and mappings are already defined in MaxRemote.h
-// Use them directly - no need to redefine
+#define MAXFAN_BIT_ON         0  // Lüfter an/aus
+#define MAXFAN_BIT_SPECIAL    1  // Auto-Modus oder Deckenlüfter-Modus
+#define MAXFAN_BIT_OUT        2  // Richtung: 0=In 1=OUT
+#define MAXFAN_BIT_COVER_OPEN 3  // Haube: 0=Zu, 1=Offen
+#define MAXFAN_BIT_AUTO       4  // 0=Manual, 1=Auto
 
-// Constructor - initialize with defaults
+
+const uint8_t MASK_FAN_ON     = (1 << MAXFAN_BIT_ON);     // 0x01
+const uint8_t MASK_SPECIAL    = (1 << MAXFAN_BIT_SPECIAL);   // 0x02
+const uint8_t MASK_OUT        = (1 << MAXFAN_BIT_OUT); // 0x04
+const uint8_t MASK_COVER_OPEN = (1 << MAXFAN_BIT_COVER_OPEN);    // 0x08
+const uint8_t MASK_AUTO       = (1 << MAXFAN_BIT_AUTO);   
+
 MaxFanState::MaxFanState() {
-  // Default: OFF mode with closed cover
   stateByte = STATE_OFF;
-  speedByte = FAN_SPEED_20;  // Default speed
-  tempFahrenheit = 68;  // Default: 20°C = 68°F
+  speedByte = FAN_SPEED_20;  
+  tempFahrenheit = 78;  
+}
+
+uint8_t clampSpeed(uint8_t speed){
+  speed =speed - (speed%10);
+  if(speed>100)
+    speed=100;
+  if(speed<10)
+    speed=10;
+  return speed;
+}
+
+uint8_t clampToFahrenheit (uint8_t tempC){
+  uint8_t f = (tempC * 9 / 5) + 32;
+  if(f>99)
+    f=99;
+  if(f<29)
+    f=29;
+  return f;
 }
 
 // Set from raw bytes (for IR reception)
-void MaxFanState::SetBytes(uint8_t state, uint8_t speed, uint8_t temp) {
+void MaxFanState::SetBytes(uint8_t state, uint8_t speed, uint8_t tempC) {
   stateByte = state & 0x7F;  // Mask to 7 bits
-  speedByte = speed & 0x7F;
-  // Convert pattern to Celsius, then to Fahrenheit
-  int celsius = MaxRemote::getTemperatureFromPattern(temp & 0x7F);
-  tempFahrenheit = (int8_t)((celsius * 9 / 5) + 32);  // C to F: F = (C * 9/5) + 32
+  speedByte = clampSpeed(speed);
+  tempFahrenheit = clampToFahrenheit(tempC);
 }
 
 // Set from JSON string (for BLE reception)
@@ -30,47 +54,30 @@ bool MaxFanState::SetJson(const String& jsonString) {
   if (error) {
     return false;
   }
-  
-  // Parse mode/off
-  bool off = doc.containsKey("off") ? doc["off"].as<bool>() : false;
-  String modeStr = doc.containsKey("mode") ? doc["mode"].as<String>() : String("");
-  
-  if (off || modeStr.equalsIgnoreCase("off")) {
-    SetState("OFF");
-  } else if (modeStr.equalsIgnoreCase("auto") || modeStr.equalsIgnoreCase("automatic")) {
-    SetState("AUTO");
-  } else {
-    SetState("MANUAL");
+
+  if(doc.containsKey("mode")){
+
+  }
+
+  if (doc.containsKey("coverOpen")){
+
+  }
+
+  if (doc.containsKey("temperature")){
+
+  }
+
+  if (doc.containsKey("speed")){
+    
+  }
+
+  if (doc.containsKey("airIn")){
+    
   }
   
-  // Parse cover/lid state
-  if (doc.containsKey("lidOpen")) {
-    SetCoverOpen(doc["lidOpen"].as<bool>());
-  }
+
   
-  // Parse temperature (for auto mode)
-  if (doc.containsKey("temp") || doc.containsKey("temperature")) {
-    int temp = doc.containsKey("temp") ? doc["temp"].as<int>() : doc["temperature"].as<int>();
-    SetTempCelsius(temp);
-  }
   
-  // Parse speed (for manual mode)
-  if (doc.containsKey("speed")) {
-    int speedPercent = doc["speed"].as<int>();
-    // Convert percentage (10,20,...,100) to 1-10 scale
-    if (speedPercent >= 10 && speedPercent <= 100 && (speedPercent % 10 == 0)) {
-      SetSpeed(speedPercent / 10);
-    }
-  }
-  
-  // Parse airIn/airFlow
-  if (doc.containsKey("airIn")) {
-    bool airIn = doc["airIn"].as<bool>();
-    SetAirFlow(airIn ? "IN" : "OUT");
-  } else if (doc.containsKey("airFlow")) {
-    String airFlow = doc["airFlow"].as<String>();
-    SetAirFlow(airFlow);
-  }
   
   return true;
 }
@@ -79,56 +86,67 @@ bool MaxFanState::SetJson(const String& jsonString) {
 String MaxFanState::ToJson() const {
   StaticJsonDocument<200> doc;
   
-  String mode = GetState();
-  doc["mode"] = mode;
-  doc["off"] = (mode == "OFF");
-  doc["lidOpen"] = GetCoverOpen();
+  MaxFanMode mode = this->GetMode();
+  switch (mode) {
+    case MaxFanMode::OFF:    
+      doc["mode"] = "OFF";
+      break;
+
+    case MaxFanMode::AUTO:    
+      doc["mode"] = "AUTO";
+      break;
+
+    case MaxFanMode::MANUAL:    
+      doc["mode"] = "MANUAL";
+      break;
+  }
+  
+  
+  doc["coverOpen"] = GetCoverOpen();
   doc["temperature"] = GetTempCelsius();
   
-  // Convert speed from 1-10 to percentage
-  int speed1to10 = GetSpeed();
-  doc["speed"] = speed1to10 * 10;
+
+  doc["speed"] = GetSpeed();
   
   // Include air flow direction
-  doc["airIn"] = (GetAirFlow() == "IN");
-  doc["airFlow"] = GetAirFlow();
+  
+  
   
   String jsonString;
   serializeJson(doc, jsonString);
   return jsonString;
 }
 
-// Get state mode: "MANUAL", "AUTO", or "OFF"
-String MaxFanState::GetState() const {
-  String mode;
-  bool coverOpen, airIn, off;
-  decodeState(mode, coverOpen, airIn, off);
-  return mode;
+
+MaxFanMode MaxFanState::GetMode() const {
+  if(((this->stateByte) & (MASK_FAN_ON)) ==0)
+    return MaxFanMode::OFF;
+  
+  if(((this->stateByte) & MASK_AUTO) != 0)
+      return MaxFanMode::AUTO;
+
+  return MaxFanMode::MANUAL;
+  
 }
 
 // Set state mode
-bool MaxFanState::SetState(const String& mode) {
-  bool coverOpen = GetCoverOpen();  // Preserve current cover state
-  String airFlow = GetAirFlow();    // Preserve current air flow direction
-  bool airIn = (airFlow == "IN");
-  
-  String modeUpper = mode;
-  modeUpper.toUpperCase();
-  
-  bool off = false;
-  if (modeUpper == "OFF") {
-    off = true;
-    encodeState("OFF", coverOpen, airIn, off);
-    return true;
-  } else if (modeUpper == "AUTO" || modeUpper == "AUTOMATIC") {
-    encodeState("AUTO", coverOpen, airIn, off);
-    return true;
-  } else if (modeUpper == "MANUAL") {
-    encodeState("MANUAL", coverOpen, airIn, off);
-    return true;
-  }
-  
-  return false;  // Invalid mode
+void MaxFanState::SetMode(MaxFanMode mode) {
+    switch (mode) {
+        case MaxFanMode::OFF:
+            this->stateByte &= ~(MASK_FAN_ON | MASK_SPECIAL);
+            this->stateByte &= ~MASK_COVER_OPEN; 
+            break;
+
+        case MaxFanMode::AUTO:
+            this->stateByte |= (MASK_FAN_ON | MASK_SPECIAL | MASK_AUTO);
+            break;
+
+        case MaxFanMode::MANUAL:
+            this->stateByte |= MASK_FAN_ON;
+            this->stateByte &= ~MASK_SPECIAL;
+            this->stateByte |= MASK_COVER_OPEN;
+            break;
+    }
 }
 
 // Get temperature in Celsius
@@ -150,79 +168,46 @@ bool MaxFanState::SetTempCelsius(int tempCelsius) {
 
 // Get speed (1-10 scale)
 int MaxFanState::GetSpeed() const {
-  return patternToSpeed(speedByte);
+  return this->speedByte;
 }
 
 // Set speed (1-10 scale)
-bool MaxFanState::SetSpeed(int speed) {
-  if (speed < 1 || speed > 10) {
-    return false;
-  }
-  speedByte = speedToPattern(speed);
-  return true;
+void MaxFanState::SetSpeed(int speed) {
+  this->speedByte = clampSpeed(speed);
 }
 
 // Get cover open state
 bool MaxFanState::GetCoverOpen() const {
-  String mode;
-  bool coverOpen, airIn, off;
-  decodeState(mode, coverOpen, airIn, off);
-  return coverOpen;
+  return (this->stateByte & MASK_COVER_OPEN) != 0;
 }
 
 // Set cover open state
 void MaxFanState::SetCoverOpen(bool open) {
-  String mode = GetState();
-  String airFlow = GetAirFlow();
-  bool airIn = (airFlow == "IN");
-  bool off = (mode == "OFF");
-  encodeState(mode, open, airIn, off);
+  if(open)
+    this->stateByte |= MASK_COVER_OPEN;
+  else
+    this->stateByte &= !MASK_COVER_OPEN;
 }
 
-// Get air flow direction: "IN" or "OUT"
-String MaxFanState::GetAirFlow() const {
-  String mode;
-  bool coverOpen, airIn, off;
-  decodeState(mode, coverOpen, airIn, off);
-  return airIn ? "IN" : "OUT";
+
+MaxFanDirection MaxFanState::GetAirFlow() const {
+  return ((this->stateByte & MASK_OUT)!=0) ? MaxFanDirection::OUT : MaxFanDirection::IN;
 }
 
-// Set air flow direction
-bool MaxFanState::SetAirFlow(const String& direction) {
-  String directionUpper = direction;
-  directionUpper.toUpperCase();
-  
-  if (directionUpper != "IN" && directionUpper != "OUT") {
-    return false;  // Invalid direction
-  }
-  
-  bool airIn = (directionUpper == "IN");
-  String mode = GetState();
-  bool coverOpen = GetCoverOpen();
-  bool off = (mode == "OFF");
-  encodeState(mode, coverOpen, airIn, off);
-  return true;
-}
+void MaxFanState::SetAirFlow(MaxFanDirection direction) {
+  switch (direction) {
+        case MaxFanDirection::OUT:
+            this->stateByte |= MASK_OUT;
+            break;
 
-// Get temperature byte (pattern) for IR emission
-uint8_t MaxFanState::GetTempByte() const {
-  // Convert Fahrenheit to Celsius, then find the closest pattern
-  int celsius = GetTempCelsius();
-  
-  // Find the closest matching pattern in the lookup table
-  // Valid range is -2°C to 37°C
-  if (celsius < -2) celsius = -2;
-  if (celsius > 37) celsius = 37;
-  
-  // Look up the pattern for this Celsius value
-  for (int i = 0; i < numTempMappings; i++) {
-    if (temperatureMappings[i].temp == celsius) {
-      return temperatureMappings[i].pattern;
+        case MaxFanDirection::IN:
+            this->stateByte &= ~MASK_OUT;
+            break;
     }
-  }
-  // Default to 20°C pattern if not found (shouldn't happen)
-  return temperatureMappings[22].pattern;  // 20°C pattern
 }
+
+
+
 
 // Comparison operators
 bool MaxFanState::operator==(const MaxFanState& other) const {
@@ -235,100 +220,12 @@ bool MaxFanState::operator!=(const MaxFanState& other) const {
   return !(*this == other);
 }
 
-// Private helper: Encode state from mode and flags
-void MaxFanState::encodeState(const String& mode, bool coverOpen, bool airIn, bool off) {
-  if (off) {
-    stateByte = STATE_OFF;
-    if (coverOpen) {
-      // Clear bit 3 (counting from MSB) to indicate open lid in OFF mode
-      stateByte &= ~(1 << 3);
-    }
-  } else if (mode == "AUTO" || mode == "AUTOMATIC") {
-    stateByte = STATE_AUTO;
-    if (airIn) {
-      stateByte |= STATE_AIR_IN;
-    }
-  } else {  // MANUAL
-    stateByte = STATE_MANUAL;
-    if (coverOpen) {
-      stateByte |= STATE_OPEN;
-    } else {
-      stateByte |= STATE_CLOSED;
-    }
-    if (airIn) {
-      stateByte |= STATE_AIR_IN;
-    }
-  }
-}
 
-// Private helper: Decode state to mode and flags
-void MaxFanState::decodeState(String& mode, bool& coverOpen, bool& airIn, bool& off) const {
-  uint8_t state = stateByte;
-  
-  // Check for OFF state (0b1111111 or 0b1110111 with lid open)
-  if (state == STATE_OFF || state == 0b1110111) {
-    mode = "OFF";
-    off = true;
-    coverOpen = (state == 0b1110111);  // Lid open if bit 3 (from MSB) is cleared
-    airIn = false;
-  }
-  // Check for AUTO mode (0b1001011 base, or 0b1011011 with air in)
-  // Mask out air direction bit (bit 5 from MSB = bit 2 from LSB)
-  else if ((state & 0b1110111) == STATE_AUTO) {
-    mode = "AUTO";
-    off = false;
-    coverOpen = false;
-    airIn = (state & STATE_AIR_IN) != 0;
-  }
-  // Must be MANUAL mode
-  else {
-    mode = "MANUAL";
-    off = false;
-    coverOpen = (state & STATE_OPEN) != 0;
-    airIn = (state & STATE_AIR_IN) != 0;
-  }
-}
 
-// Private helper: Convert speed (1-10) to pattern
-uint8_t MaxFanState::speedToPattern(int speed1to10) const {
-  int speedPercent = speed1to10 * 10;
-  switch(speedPercent) {
-    case 10:   return FAN_SPEED_10;
-    case 20:   return FAN_SPEED_20;
-    case 30:   return FAN_SPEED_30;
-    case 40:   return FAN_SPEED_40;
-    case 50:   return FAN_SPEED_50;
-    case 60:   return FAN_SPEED_60;
-    case 70:   return FAN_SPEED_70;
-    case 80:   return FAN_SPEED_80;
-    case 90:   return FAN_SPEED_90;
-    case 100:  return FAN_SPEED_100;
-    default:   return FAN_SPEED_20;
-  }
-}
 
-// Private helper: Convert pattern to speed (1-10)
-int MaxFanState::patternToSpeed(uint8_t pattern) const {
-  switch(pattern) {
-    case FAN_SPEED_10:   return 1;
-    case FAN_SPEED_20:   return 2;
-    case FAN_SPEED_30:   return 3;
-    case FAN_SPEED_40:   return 4;
-    case FAN_SPEED_50:   return 5;
-    case FAN_SPEED_60:   return 6;
-    case FAN_SPEED_70:   return 7;
-    case FAN_SPEED_80:   return 8;
-    case FAN_SPEED_90:   return 9;
-    case FAN_SPEED_100:  return 10;
-    default:             return 2;  // Default to 2 (20%)
-  }
-}
 
-// Temperature conversion formulas (Celsius <-> Fahrenheit)
-// F = (C * 9/5) + 32
-// C = (F - 32) * 5/9
 
-// Note: Pattern conversion still uses MaxRemote's lookup table since IR protocol
-// uses specific patterns that don't follow a mathematical formula.
-// The formulas above are only for C<->F conversion, not for pattern conversion.
+
+
+
 
