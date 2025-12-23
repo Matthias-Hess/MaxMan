@@ -22,32 +22,21 @@ void MaxReceiver::begin() {
 // --- getCommand() ---
 // Returns true if a new command was received and parsed successfully
 bool MaxReceiver::update(MaxFanState & maxFanState) {
-  
-  if (!irrecv.decode(&results)) {
-    return false; 
-  }
+  bool success = false;
+  uint8_t data[16];
 
-    uint8_t data[16];
-    
+  while (irrecv.decode(&results)) {
     if (this->parseToBytes(data)) {
       maxFanState.SetBytes(data[10], data[11], data[12]);
-      resume();
-      return true;
+      success = true;
     }
     resume();
-    return false;
-    
-    
-      
+  }
 
-
-
-
-
-
-
-  
+  return success;  
 }
+
+
 
 
 bool MaxReceiver::parseToBytes(uint8_t* output16Bytes) {
@@ -64,7 +53,6 @@ bool MaxReceiver::parseToBytes(uint8_t* output16Bytes) {
     
    
     if (duration < threshold) {
-      Serial.println("IGNORED" );
       continue;
     }
 

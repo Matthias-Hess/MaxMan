@@ -41,7 +41,7 @@ uint8_t clampToFahrenheit (uint8_t tempC){
 
 // Set from raw bytes (for IR reception)
 void MaxFanState::SetBytes(uint8_t state, uint8_t speed, uint8_t tempC) {
-  stateByte = state & 0x7F;  // Mask to 7 bits
+  stateByte = state;  
   speedByte = clampSpeed(speed);
   tempFahrenheit = clampToFahrenheit(tempC);
 }
@@ -119,11 +119,13 @@ String MaxFanState::ToJson() const {
 
 
 MaxFanMode MaxFanState::GetMode() const {
-  if(((this->stateByte) & (MASK_FAN_ON)) ==0)
-    return MaxFanMode::OFF;
+  
   
   if(((this->stateByte) & MASK_AUTO) != 0)
       return MaxFanMode::AUTO;
+  
+  if(((this->stateByte) & (MASK_FAN_ON)) ==0)
+    return MaxFanMode::OFF;
 
   return MaxFanMode::MANUAL;
   
