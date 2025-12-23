@@ -63,6 +63,7 @@ class MaxReceiver {
     
     // Internal helper methods
     String getBitString();
+    bool parseToBytes(uint8_t* output16Bytes);
     bool parseCommand(const String &bitString, MaxFanCommand &cmd);
     void resume();
     

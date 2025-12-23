@@ -1,7 +1,7 @@
 #include "MaxReceiver.h"
 #include "MaxRemote.h"  // For getTemperatureFromPattern
 using namespace MaxFan;
-
+#define MAX_BITSTRING_LEN 200
 #include <stdlib.h>  // for strtol
 
 // Use a separate tick constant for the receiver conversion.
@@ -17,6 +17,8 @@ void MaxReceiver::begin() {
   irrecv.enableIRIn();  // Start the IR receiver.
 }
 
+
+
 // --- getCommand() ---
 // Returns true if a new command was received and parsed successfully
 bool MaxReceiver::getCommand(MaxFanCommand& cmd) {
@@ -24,64 +26,185 @@ bool MaxReceiver::getCommand(MaxFanCommand& cmd) {
   if (!irrecv.decode(&results)) {
     return false;  // No signal available
   }
+
+    uint8_t data[16];
+    
+    if (this->parseToBytes(data)) {
+      resume();
+      return true;
+    }
+    else{
+      resume();
+      return false;
+    }
+    
+    
+      
+
+
+
+
+
+
+
   
-  // Convert raw data to bit string
-  String rawBitString = getBitString();
-  
-  // Parse the command into internal storage first
-  if (parseCommand(rawBitString, lastCommand)) {
-    hasLastCommand = true;
-    // Copy to caller's parameter
-    cmd = lastCommand;
-    resume();  // Prepare for next signal
-    return true;
-  } else {
-    resume();  // Still need to resume even if parse failed
-    return false;  // Parse failed
-  }
 }
+
+
+bool MaxReceiver::parseToBytes(uint8_t* output16Bytes) {
+
+  memset(output16Bytes, 0, 16);
+
+  int byteCount = 0;
+  bool currentBit = false; // Startet bei IR meist mit dem Puls (LOW/0)
+  const uint16_t threshold = 250;
+  int bitInFrame = 0; 
+
+  for (int i = 0; i < results.rawlen; i++) {
+    uint16_t duration = results.rawbuf[i];
+    
+   
+    if (duration < threshold) {
+      // Serial.println("IGNORED" );
+      continue;
+    }
+
+    int ticks = (int)round((float)duration / RECEIVER_TICK_US);
+    if (ticks < 1) ticks = 1;
+
+    for (int j = 0; j < ticks; j++) {
+
+      if (bitInFrame == 0 && currentBit) {
+        // Serial.printf ("startbit != 0 on idx %d", byteCount);
+        return false; 
+      }
+      
+      // 2. Datenbits (1-8)
+      if (bitInFrame >= 1 && bitInFrame <= 8) {
+        if (currentBit) {
+          output16Bytes[byteCount] |= (1 << (bitInFrame-1));
+        }
+      }
+
+      // 3. Stopbits (9-10)
+      if ((bitInFrame == 9 || bitInFrame == 10) && !currentBit) {
+        // Serial.printf("stopbit != 1 on idx %d", byteCount);
+        return false;
+      }
+      bitInFrame++;
+      
+      if (bitInFrame >= 11) {
+        bitInFrame = 0;
+        byteCount++;
+      }
+    }
+    
+    
+    currentBit = !currentBit;
+  }
+
+  // Daten gelesen
+
+  if(byteCount<15)
+    return false; // zu wenig Daten erhalten
+
+  if(byteCount ==15){
+    // Letztes Byte mit 1 ergänzen wenn nicht vorhanden
+    if(bitInFrame <7)
+      return false;
+    if(bitInFrame ==7){
+      // letzte 2 bits ergänzen
+      output16Bytes[byteCount] |= (1 << 6);
+      output16Bytes[byteCount] |= (1 << 7);
+    }
+    if(bitInFrame ==8){
+      // letztes Bit ergänzen
+      output16Bytes[byteCount] |= (1 << 7);
+    }
+  }
+
+  // Daten sollten jetzt korrigiert sein
+  uint8_t xorVal = output16Bytes[10] ^ output16Bytes[11] ^ output16Bytes[12] ^ output16Bytes[13] ^ output16Bytes[14];
+  if (output16Bytes[15] != xorVal){
+    // Serial.println("--checksum--");
+    // Serial.println(output16Bytes[10], BIN);
+    // Serial.println(output16Bytes[11], BIN);
+    // Serial.println(output16Bytes[12], BIN);
+    // Serial.println(output16Bytes[13], BIN);
+    // Serial.println(output16Bytes[14], BIN);
+    // Serial.println("-----");
+    // Serial.println(output16Bytes[15], BIN);
+    // Serial.println(xorVal, BIN);
+    // Serial.flush();
+    return false;
+  } else {
+    // Serial.println("PARSE OK");
+    // Serial.println("PARSE OK");
+    // Serial.println("PARSE OK");
+    // Serial.println("PARSE OK");
+    // Serial.flush();
+    return true;
+  }
+  return false;
+
+}
+
+
+
 
 // --- getBitString() --- (private)
 // Converts the raw durations (in microseconds) into a binary string.
 // Uses RECEIVER_TICK_US as the conversion unit.
 String MaxReceiver::getBitString() {
-  String bitString = "";
-  // Assume the received signal starts HIGH (you may try '0' if needed).
-  char currentBit = '1';
+  char bitBuffer[MAX_BITSTRING_LEN];
+  int bufferIdx = 0;
   
-  // Define a threshold to ignore very short durations (e.g., noise below 100 µs).
+  char currentBit = '0'; // Startwert (ggf. anpassen je nach Protokoll)
   const uint16_t threshold = 100;
   
   Serial.print("Processed raw durations: ");
+  
   for (int i = 0; i < results.rawlen; i++) {
     uint16_t duration = results.rawbuf[i];
+    
+    // Rauschen ignorieren
     if (duration < threshold) continue;
     
     Serial.print(duration);
     Serial.print(" ");
     
-    // Determine the number of ticks (rounding to nearest integer).
+    // Anzahl der Ticks berechnen (Rundung)
     int count = (int)round((float)duration / RECEIVER_TICK_US);
     if (count < 1) count = 1;
     
+    // Bits in den Buffer schreiben, sofern noch Platz ist
     for (int j = 0; j < count; j++) {
-      bitString += currentBit;
+      if (bufferIdx < (MAX_BITSTRING_LEN - 1)) {
+        bitBuffer[bufferIdx++] = currentBit;
+      }
     }
     
-    // Alternate the bit value.
+    // Pegelwechsel erst NACHDEM die Bits geschrieben wurden
     currentBit = (currentBit == '1') ? '0' : '1';
   }
+  
+  // Null-Terminator am Ende des C-Strings setzen
+  bitBuffer[bufferIdx] = '\0';
+  
   Serial.println();
   Serial.print("Final bit string length: ");
-  Serial.println(bitString.length());
-  return bitString;
+  Serial.println(bufferIdx);
+  
+  // Wir geben den String am Ende zurück, damit die Funktionssignatur 
+  // gleich bleibt (oder du änderst den Rückgabetyp komplett auf char*)
+  return String(bitBuffer); 
 }
 
 // --- parseCommand() --- (private)
 // This version extracts only the essential fields: START, state (7 bits),
 // separator, speed (7 bits), separator, and temp (7 bits). The tail is ignored.
 bool MaxReceiver::parseCommand(const String &bitString, MaxFanCommand &cmd) {
-  int lenStart = strlen(MaxFan::START);
+  int lenStart = strlen(MaxFan::PREAMBLE);
   int lenSep = strlen(MaxFan::SEPARATOR);
   // Essential fields: START + state (7 bits) + separator + speed (7 bits) + separator + temp (7 bits)
   int expectedLength = lenStart + 7 + lenSep + 7 + lenSep + 7;
@@ -92,9 +215,9 @@ bool MaxReceiver::parseCommand(const String &bitString, MaxFanCommand &cmd) {
   Serial.println(bitString.length());
   
   // Locate the START sequence.
-  int startIndex = bitString.indexOf(String(MaxFan::START));
+  int startIndex = bitString.indexOf(String(MaxFan::PREAMBLE));
   if (startIndex < 0) {
-    Serial.println("START sequence not found.");
+    Serial.println("PREAMBLE sequence not found.");
     return false;
   }
   
@@ -105,7 +228,7 @@ bool MaxReceiver::parseCommand(const String &bitString, MaxFanCommand &cmd) {
   
   // If the trimmed string is shorter than expected, pad with zeros.
   while (trimmed.length() < expectedLength) {
-    trimmed += "0";
+    trimmed += "1";
   }
   // If longer, cut to expected length.
   if (trimmed.length() > expectedLength) {
@@ -116,8 +239,8 @@ bool MaxReceiver::parseCommand(const String &bitString, MaxFanCommand &cmd) {
   
   // Validate START sequence (but don't store it - it's a constant)
   String startSeq = trimmed.substring(0, lenStart);
-  if (startSeq != String(MaxFan::START)) {
-    Serial.println("Start field does not match expected pattern.");
+  if (startSeq != String(MaxFan::PREAMBLE)) {
+    Serial.println("PREAMBLE field does not match expected pattern.");
     return false;
   }
   
@@ -130,7 +253,7 @@ bool MaxReceiver::parseCommand(const String &bitString, MaxFanCommand &cmd) {
   // Validate and skip separator1 (but don't store it - it's a constant)
   String sep1 = trimmed.substring(index, index + lenSep);
   if (sep1 != String(MaxFan::SEPARATOR)) {
-    Serial.println("Separator1 does not match expected pattern.");
+    Serial.println("Separator1 does not match expected pattern:" + sep1);
     return false;
   }
   index += lenSep;
@@ -142,7 +265,7 @@ bool MaxReceiver::parseCommand(const String &bitString, MaxFanCommand &cmd) {
   // Validate and skip separator2 (but don't store it - it's a constant)
   String sep2 = trimmed.substring(index, index + lenSep);
   if (sep2 != String(MaxFan::SEPARATOR)) {
-    Serial.println("Separator2 does not match expected pattern.");
+    Serial.println("Separator2 does not match expected pattern:" + sep2);
     return false;
   }
   index += lenSep;
@@ -208,7 +331,7 @@ int decodeTemperature(const String &tempStr) {
 // --- MaxFanCommand::print() ---
 // Prints the decoded command in human-readable form.
 void MaxFanCommand::print() const {
-  Serial.println("Decoded MaxFan Command:");
+  
   
   String stateDesc = decodeState(state);
   int speedPercent = decodeSpeed(speed);

@@ -146,7 +146,7 @@ void MaxRemote::sendSignal(bool autoMode, int temperature, int fanSpeed, bool li
   // Construct the complete binary signal:
   // START + state + SEPARATOR + speed + SEPARATOR + temp +
   // SEPARATOR + UNKNOWN_FIELD + SEPARATOR + checksum + END
-  String finalSignal = String(START) + stateStr + String(SEPARATOR) +
+  String finalSignal = String(PREAMBLE) + stateStr + String(SEPARATOR) +
                        speedStr + String(SEPARATOR) + tempStr + String(SEPARATOR) +
                        String(UNKNOWN_FIELD) + String(SEPARATOR) + checksumStr + String(END);
 
@@ -201,7 +201,7 @@ void MaxRemote::sendCommand(const MaxFanCommand& cmd) {
   // Construct the complete binary signal from the command fields:
   // START + state + SEPARATOR + speed + SEPARATOR + temp +
   // SEPARATOR + UNKNOWN_FIELD + SEPARATOR + checksum + END
-  String finalSignal = String(START) + cmd.state + String(SEPARATOR) +
+  String finalSignal = String(PREAMBLE) + cmd.state + String(SEPARATOR) +
                        cmd.speed + String(SEPARATOR) + cmd.temp + String(SEPARATOR) +
                        String(UNKNOWN_FIELD) + String(SEPARATOR) + checksumStr + String(END);
   
