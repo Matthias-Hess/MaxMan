@@ -4,8 +4,18 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 
+enum class CoverState {CLOSED, OPEN};
+std::string toString(CoverState mode);
+CoverState toCoverState(const std::string& str);
+
 enum class MaxFanMode { OFF, AUTO, MANUAL };
+std::string toString(MaxFanMode mode);
+MaxFanMode toMaxFanMode(const std::string& str);
+
+
 enum class MaxFanDirection { IN, OUT };
+std::string toString(MaxFanDirection mode);
+MaxFanDirection toMaxFanDirection(const std::string& str);
 
 // Canonical command/state representation for MaxxFan
 // Core: 3 bytes (state, speed, temp) stored as 7-bit patterns
@@ -23,32 +33,30 @@ public:
   String ToJson() const;
   
   // State mode accessors
-  MaxFanMode GetMode() const;  // Returns "MANUAL", "AUTO", or "OFF"
+  MaxFanMode GetMode() const;  
   void SetMode(MaxFanMode mode);
   
-  // Temperature accessors (for AUTO mode) - works with Celsius
-  // Note: Internal storage uses protocol pattern, conversion via lookup table
+
   int GetTempCelsius() const;
-  bool SetTempCelsius(int tempCelsius);  // Returns true if valid temp set
+  bool SetTempCelsius(int tempCelsius);  
   
   
-  int GetSpeed() const;  // Returns 10-100
-  void SetSpeed(int speed);  // Valid range: 10-100
+  int GetSpeed() const;  
+  void SetSpeed(int speed);  
   
-  // Cover/lid state accessors
-  bool GetCoverOpen() const;
-  void SetCoverOpen(bool open);
+
+  CoverState GetCover() const;
+  void SetCover(CoverState);
   
-  // Air flow direction accessors
+
   MaxFanDirection GetAirFlow() const;  
-  void SetAirFlow(MaxFanDirection direction);  // Returns true if valid direction set
+  void SetAirFlow(MaxFanDirection);  // Returns true if valid direction set
   
-  // Direct byte accessors (for IR emission)
+
   uint8_t GetStateByte() const { return stateByte; }
   uint8_t GetSpeedByte() const { return speedByte; }
-  uint8_t GetTempByte() const;  // Converts Fahrenheit to pattern for IR emission
-  
-  // Comparison operators
+  uint8_t GetTempByte() const;  
+
   bool operator==(const MaxFanState& other) const;
   bool operator!=(const MaxFanState& other) const;
   

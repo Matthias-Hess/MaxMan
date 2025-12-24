@@ -133,6 +133,9 @@ void loop() {
 
   if(fanReceiver.update(maxFanState)){
     Serial.println(maxFanState.ToJson());
+    Serial.println();
+    Serial.println();
+    Serial.flush();
   }
 
 

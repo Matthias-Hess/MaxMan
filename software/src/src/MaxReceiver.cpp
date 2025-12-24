@@ -28,11 +28,15 @@ bool MaxReceiver::update(MaxFanState & maxFanState) {
   while (irrecv.decode(&results)) {
     if (this->parseToBytes(data)) {
       maxFanState.SetBytes(data[10], data[11], data[12]);
+      Serial.print("OK");
       success = true;
+    } else {
+      Serial.print("XX");
     }
     resume();
   }
-
+  if(success)
+    Serial.print("-");
   return success;  
 }
 
@@ -55,6 +59,8 @@ bool MaxReceiver::parseToBytes(uint8_t* output16Bytes) {
     if (duration < threshold) {
       continue;
     }
+
+    
 
     int ticks = (int)round((float)duration / RECEIVER_TICK_US);
     if (ticks < 1) ticks = 1;
@@ -91,25 +97,21 @@ bool MaxReceiver::parseToBytes(uint8_t* output16Bytes) {
   }
 
   // Daten gelesen
+  Serial.print ("read");
 
-  if(byteCount<15)
+  if(byteCount<15){
     return false; // zu wenig Daten erhalten
-
-  if(byteCount ==15){
-    // Letztes Byte mit 1 ergänzen wenn nicht vorhanden
-    if(bitInFrame <7)
-      return false;
-    if(bitInFrame ==7){
-      // letzte 2 bits ergänzen
-      output16Bytes[byteCount] |= (1 << 6);
-      output16Bytes[byteCount] |= (1 << 7);
-    }
-    if(bitInFrame ==8){
-      // letztes Bit ergänzen
-      output16Bytes[byteCount] |= (1 << 7);
+  }
+   
+  Serial.print ("here");
+  if(byteCount == 15){
+    int bitInByte = bitInFrame-2;
+    // Letztes Byte mit 1er bits ergänzen wenn nicht gelesen
+    for (int bit = bitInByte+1; bit<8; bit++){
+      output16Bytes[byteCount] |= (1 << bit);
     }
   }
-
+  Serial.print ("b");
   // Daten sollten jetzt korrigiert sein
   uint8_t xorVal = output16Bytes[10] ^ output16Bytes[11] ^ output16Bytes[12] ^ output16Bytes[13] ^ output16Bytes[14];
   if (output16Bytes[15] != xorVal){
@@ -140,6 +142,7 @@ bool MaxReceiver::parseToBytes(uint8_t* output16Bytes) {
     // Serial.flush();
     return true;
   }
+  Serial.print("fall out");
   return false;
 
 }
