@@ -1,12 +1,18 @@
+#include <stdlib.h>
+
 #ifndef MAXFANCONSTANTS_H
 #define MAXFANCONSTANTS_H
 
 namespace MaxFan {
-  static const char* PREAMBLE      = "001011010110101001011100000000111011111110110000000101101111110111000000100110111110111100000100011000110011110";
-  static const char* SEPARATOR     = "0110";
-  //static const char* UNKNOWN_FIELD = "000000000010011101";
-  static const char* UNKNOWN_FIELD = "111111111101100010";
-  static const char* END           = "1111111";
+
+  static const uint8_t HEADER[] = { 
+        0x5A, 0xA5, 0x80, 0x7F, 0x40, 0xBF, 0x20, 0xDF, 0x10, 0xCC 
+    };
+
+  static const uint8_t FOOTER[] = {
+      0xFF, 0x23
+    };
+
 }
 
 #endif // MAXFANCONSTANTS_H

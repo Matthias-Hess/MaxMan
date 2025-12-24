@@ -27,6 +27,7 @@ bool MaxReceiver::update(MaxFanState & maxFanState) {
 
   while (irrecv.decode(&results)) {
     if (this->parseToBytes(data)) {
+
       maxFanState.SetBytes(data[10], data[11], data[12]);
       Serial.print("OK");
       success = true;
@@ -51,6 +52,9 @@ bool MaxReceiver::parseToBytes(uint8_t* output16Bytes) {
   bool currentBit = false; // Startet bei IR meist mit dem Puls (LOW/0)
   const uint16_t threshold = 250;
   int bitInFrame = 0; 
+
+
+  
 
   for (int i = 0; i < results.rawlen; i++) {
     uint16_t duration = results.rawbuf[i];
@@ -97,13 +101,10 @@ bool MaxReceiver::parseToBytes(uint8_t* output16Bytes) {
   }
 
   // Daten gelesen
-  Serial.print ("read");
-
   if(byteCount<15){
     return false; // zu wenig Daten erhalten
   }
    
-  Serial.print ("here");
   if(byteCount == 15){
     int bitInByte = bitInFrame-2;
     // Letztes Byte mit 1er bits ergänzen wenn nicht gelesen
@@ -111,7 +112,17 @@ bool MaxReceiver::parseToBytes(uint8_t* output16Bytes) {
       output16Bytes[byteCount] |= (1 << bit);
     }
   }
-  Serial.print ("b");
+
+  // Check if Header is correct
+  for (int idx=0; idx<10; idx++)
+  {
+    if(HEADER[idx] != output16Bytes[idx]){
+      Serial.println("header mismatch");
+      return false;
+    }
+  }
+
+
   // Daten sollten jetzt korrigiert sein
   uint8_t xorVal = output16Bytes[10] ^ output16Bytes[11] ^ output16Bytes[12] ^ output16Bytes[13] ^ output16Bytes[14];
   if (output16Bytes[15] != xorVal){
@@ -127,19 +138,20 @@ bool MaxReceiver::parseToBytes(uint8_t* output16Bytes) {
     Serial.flush();
     return false;
   } else {
-    Serial.printf("STATE:");
+    Serial.println();
+    Serial.print("STATE:");
     Serial.print(output16Bytes[10], BIN);
-    Serial.printf("SPEED:");
+    Serial.printf(" SPEED:");
     Serial.print(output16Bytes[11]);
-    Serial.printf("TEMP:");
+    Serial.printf(" TEMP:");
     Serial.print(output16Bytes[12]);
+    Serial.printf(" F13:");
+    Serial.print(output16Bytes[13]);
+    Serial.printf(" F14:");
+    Serial.print(output16Bytes[14]);
+
     
 
-    // Serial.println("PARSE OK");
-    // Serial.println("PARSE OK");
-    // Serial.println("PARSE OK");
-    // Serial.println("PARSE OK");
-    // Serial.flush();
     return true;
   }
   Serial.print("fall out");

@@ -1,174 +1,78 @@
 #include "MaxFanBLE.h"
 
+// UUIDs (beibehalten aus deinem vorherigen Entwurf)
+#define SERVICE_UUID        "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
+#define COMMAND_UUID        "beb5483e-36e1-4688-b7f5-ea07361b26a8"
+#define STATUS_UUID         "cba1d466-344c-4be3-ab3f-1890d5c0c0c0"
+
 MaxFanBLE::MaxFanBLE() 
-  : pServer(nullptr), pService(nullptr), 
-    pCommandCharacteristic(nullptr), pStatusCharacteristic(nullptr),
-    deviceConnected(false), oldDeviceConnected(false),
-    commandCallback(nullptr) {
-  // Initialize default state
-  currentState.mode = "off";
-  currentState.temperature = 20;
-  currentState.speed = 20;
-  currentState.lidOpen = false;
-  currentState.airIn = false;
-  currentState.off = true;
-}
-
-MaxFanBLE::~MaxFanBLE() {
-  // Cleanup handled by BLE stack
-}
-
-void MaxFanBLE::setCommandCallback(CommandCallback callback) {
-  commandCallback = callback;
+  : _pServer(nullptr), _pCommandChar(nullptr), _pStatusChar(nullptr), 
+    _onCommandReceived(nullptr), _deviceConnected(false) {
 }
 
 void MaxFanBLE::begin(const char* deviceName) {
-  // Initialize BLE
-  BLEDevice::init(deviceName);
-  
-  // Create BLE Server
-  pServer = BLEDevice::createServer();
-  pServer->setCallbacks(new ServerCallbacks(this));
-  
-  // Create BLE Service
-  pService = pServer->createService(SERVICE_UUID);
-  
-  // Create Command Characteristic (Write only)
-  pCommandCharacteristic = pService->createCharacteristic(
-    COMMAND_UUID,
-    BLECharacteristic::PROPERTY_WRITE
-  );
-  pCommandCharacteristic->setCallbacks(new CommandCallbacks(this));
-  
-  // Create Status Characteristic (Read + Notify)
-  pStatusCharacteristic = pService->createCharacteristic(
-    STATUS_UUID,
-    BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY
-  );
-  pStatusCharacteristic->addDescriptor(new BLE2902());
-  
-  // Start the service
-  pService->start();
-  
-  // Start advertising
-  BLEAdvertising* pAdvertising = BLEDevice::getAdvertising();
-  pAdvertising->addServiceUUID(SERVICE_UUID);
-  pAdvertising->setScanResponse(false);
-  pAdvertising->setMinPreferred(0x0);  // set value to 0x00 to not advertise this parameter
-  BLEDevice::startAdvertising();
-  
-  Serial.println("BLE Server started, waiting for connections...");
+    // 1. BLE Device Initialisierung
+    BLEDevice::init(deviceName);
+    
+    // 2. Server erstellen
+    _pServer = BLEDevice::createServer();
+    _pServer->setCallbacks(new MyServerCallbacks(this));
+    
+    // 3. Service erstellen
+    BLEService* pService = _pServer->createService(SERVICE_UUID);
+    
+    // 4. Command Characteristic (Vom Handy zum XIAO - WRITE)
+    _pCommandChar = pService->createCharacteristic(
+        COMMAND_UUID,
+        BLECharacteristic::PROPERTY_WRITE
+    );
+    _pCommandChar->setCallbacks(new MyCharCallbacks(this));
+    
+    // 5. Status Characteristic (Vom XIAO zum Handy - NOTIFY/READ)
+    _pStatusChar = pService->createCharacteristic(
+        STATUS_UUID,
+        BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY
+    );
+    // Notwendig, damit das Handy auf Notifications "hören" kann
+    _pStatusChar->addDescriptor(new BLE2902());
+    
+    // 6. Service starten
+    pService->start();
+    
+    // 7. Advertising (Sichtbarkeit) starten
+    BLEAdvertising* pAdvertising = BLEDevice::getAdvertising();
+    pAdvertising->addServiceUUID(SERVICE_UUID);
+    pAdvertising->setScanResponse(false);
+    pAdvertising->setMinPreferred(0x06); // Hilft bei der Verbindungskompatibilität
+    pAdvertising->setMinPreferred(0x12);
+    BLEDevice::startAdvertising();
+
+    Serial.println("BLE Transport-Layer aktiv: Warte auf Verbindung...");
+}
+
+void MaxFanBLE::setCommandCallback(CommandCallback callback) {
+    _onCommandReceived = callback;
+}
+
+void MaxFanBLE::notifyStatus(const String& jsonStatus) {
+    if (_deviceConnected && _pStatusChar) {
+        _pStatusChar->setValue(jsonStatus.c_str());
+        _pStatusChar->notify();
+    }
 }
 
 bool MaxFanBLE::isConnected() {
-  return deviceConnected;
+    return _deviceConnected;
 }
 
-FanState MaxFanBLE::getState() {
-  return currentState;
-}
+// --- Callback Implementierungen ---
 
-void MaxFanBLE::setState(const FanState& state) {
-  currentState = state;
-  notifyStateChange();
-}
-
-void MaxFanBLE::notifyStateChange() {
-  if (deviceConnected && pStatusCharacteristic) {
-    // Convert state to JSON
-    StaticJsonDocument<200> doc;
-    doc["mode"] = currentState.mode;
-    doc["temperature"] = currentState.temperature;
-    doc["speed"] = currentState.speed;
-    doc["lidOpen"] = currentState.lidOpen;
-    doc["airIn"] = currentState.airIn;
-    doc["off"] = currentState.off;
+void MaxFanBLE::MyCharCallbacks::onWrite(BLECharacteristic* pChar) {
+    // Rohen Wert aus der Characteristic lesen
+    std::string rxValue = pChar->getValue();
     
-    String jsonString;
-    serializeJson(doc, jsonString);
-    
-    pStatusCharacteristic->setValue(jsonString.c_str());
-    pStatusCharacteristic->notify();
-  }
-}
-
-bool MaxFanBLE::processCommand(const String& jsonCommand, FanState& outState) {
-  StaticJsonDocument<200> doc;
-  DeserializationError error = deserializeJson(doc, jsonCommand);
-  
-  if (error) {
-    Serial.print("JSON parse error: ");
-    Serial.println(error.c_str());
-    return false;
-  }
-  
-  // Initialize with current state
-  outState = currentState;
-  
-  // Parse mode
-  if (doc.containsKey("mode")) {
-    const char* modeStr = doc["mode"];
-    outState.mode = String(modeStr);
-  }
-  
-  // Parse temperature (for auto mode)
-  if (doc.containsKey("temp") || doc.containsKey("temperature")) {
-    int temp = doc.containsKey("temp") ? doc["temp"] : doc["temperature"];
-    if (temp >= -2 && temp <= 37) {
-      outState.temperature = temp;
+    if (rxValue.length() > 0 && _parent->_onCommandReceived) {
+        // String konvertieren und direkt an den registrierten Callback im Main weitergeben
+        _parent->_onCommandReceived(String(rxValue.c_str()));
     }
-  }
-  
-  // Parse speed (for manual mode)
-  if (doc.containsKey("speed")) {
-    int speed = doc["speed"];
-    // Validate speed is one of the allowed values
-    if (speed == 10 || speed == 20 || speed == 30 || speed == 40 || 
-        speed == 50 || speed == 60 || speed == 70 || speed == 80 || 
-        speed == 90 || speed == 100) {
-      outState.speed = speed;
-    }
-  }
-  
-  // Parse lidOpen
-  if (doc.containsKey("lidOpen")) {
-    outState.lidOpen = doc["lidOpen"];
-  }
-  
-  // Parse airIn
-  if (doc.containsKey("airIn")) {
-    outState.airIn = doc["airIn"];
-  }
-  
-  // Parse off
-  if (doc.containsKey("off")) {
-    outState.off = doc["off"];
-  }
-  
-  // Determine mode based on off flag or explicit mode
-  if (outState.off) {
-    outState.mode = "off";
-  } else if (outState.mode == "auto" || outState.mode == "automatic") {
-    outState.mode = "auto";
-    outState.off = false;
-  } else {
-    outState.mode = "manual";
-    outState.off = false;
-  }
-  
-  Serial.print("Parsed BLE command: mode=");
-  Serial.print(outState.mode);
-  Serial.print(", temp=");
-  Serial.print(outState.temperature);
-  Serial.print(", speed=");
-  Serial.print(outState.speed);
-  Serial.print(", lidOpen=");
-  Serial.print(outState.lidOpen);
-  Serial.print(", airIn=");
-  Serial.print(outState.airIn);
-  Serial.print(", off=");
-  Serial.println(outState.off);
-  
-  return true;
 }
-

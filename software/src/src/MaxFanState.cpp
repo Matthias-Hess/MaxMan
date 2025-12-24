@@ -61,9 +61,9 @@ CoverState toCoverState(const std::string& str) {
 }
 
 MaxFanState::MaxFanState() {
-  stateByte = STATE_OFF;
-  speedByte = FAN_SPEED_20;  
-  tempFahrenheit = 78;  
+  this->SetMode(MaxFanMode::OFF);
+  this->SetSpeed(20);
+  this->SetTempCelsius(26);
 }
 
 uint8_t clampSpeed(uint8_t speed){

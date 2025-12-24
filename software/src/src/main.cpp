@@ -12,6 +12,7 @@ MaxRemote fanRemote(2);
  
 MaxFanBLE fanBLE;
 
+
 // Store the current command as canonical format (MaxFanState)
 // This is the single source of truth for IR commands
 MaxFanState maxFanState;
@@ -47,12 +48,10 @@ void drawEncoderValue(long value) {
 
 
 // BLE command callback: convert FanState to MaxFanCommand and emit IR
-void onBLECommand(const FanState& state) {
-  Serial.println("BLE command received, converting and sending IR signal...");
-  
-
-  Serial.println("IR NOT signal sent");
+void onBLECommand(const String& json) {
+  maxFanState.SetJson(json);
 }
+
 
 
 
@@ -129,14 +128,9 @@ void loop() {
   
   // BLE commands are handled via callback in onBLECommand()
   
-  // Handle IR signals
+  fanRemote.send(maxFanState);
 
-  if(fanReceiver.update(maxFanState)){
-    Serial.println(maxFanState.ToJson());
-    Serial.println();
-    Serial.println();
-    Serial.flush();
-  }
+  fanReceiver.update(maxFanState);
 
 
   // --- Rotary encoder handling via custom Encoder class (interrupt-based) ---

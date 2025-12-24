@@ -55,7 +55,9 @@ public:
 
   uint8_t GetStateByte() const { return stateByte; }
   uint8_t GetSpeedByte() const { return speedByte; }
-  uint8_t GetTempByte() const;  
+  uint8_t GetTempByte() const  { return tempFahrenheit;}  
+
+
 
   bool operator==(const MaxFanState& other) const;
   bool operator!=(const MaxFanState& other) const;
@@ -65,11 +67,6 @@ private:
   uint8_t stateByte;  // 7-bit state pattern
   uint8_t speedByte;  // speed (10, 20, 30, .. 100)
   uint8_t tempFahrenheit;  // Temperature in Fahrenheit
-  
-  
-  
-  
-  
 };
 
 #endif // MAXFANSTATE_H
