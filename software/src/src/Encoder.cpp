@@ -1,6 +1,6 @@
 #include "Encoder.h"
 #include "soc/gpio_struct.h"
-    #include "hal/gpio_ll.h"
+#include "hal/gpio_ll.h"
 
 Encoder::Encoder(uint8_t a, uint8_t b)
 : pinA(a), pinB(b), delta(0), position(0), lastState(0)

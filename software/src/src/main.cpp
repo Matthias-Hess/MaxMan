@@ -7,112 +7,51 @@
 #include <Adafruit_SSD1306.h>
 #include "Encoder.h"
 #include <MaxFanState.h>
+#include <MaxFanDisplay.h>
+#include <ButtonArray.h>
 
-MaxRemote fanRemote(2);
- 
+#define ENCODER_BUTTON 8
+#define MODE_BUTTON 10
+#define AIRFLOW_BUTTON 9
+
+
 MaxFanBLE fanBLE;
+long testValue =0;
 
-
-// Store the current command as canonical format (MaxFanState)
-// This is the single source of truth for IR commands
 MaxFanState maxFanState;
 
- // TSOP4838 wired to GPIO3
-MaxReceiver fanReceiver(3);
-
-bool hasCurrentCommand = false;
-
-// OLED Display setup (0.96 inch SSD1306)
-#define SCREEN_WIDTH 128
-#define SCREEN_HEIGHT 64
-#define OLED_SDA 6  // Seeed XIAO ESP32C3 default SDA
-#define OLED_SCL 7  // Seeed XIAO ESP32C3 default SCL
-Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
-
-// Rotary encoder pins (per user wiring)
-const uint8_t ENCODER_PIN_A = 4;  // GPIO4
-const uint8_t ENCODER_PIN_B = 5;  // GPIO5
-Encoder encoder(ENCODER_PIN_A, ENCODER_PIN_B);
-
-void drawEncoderValue(long value) {
-  display.clearDisplay();
-  display.setTextSize(2);
-  display.setTextColor(SSD1306_WHITE);
-  display.setCursor(0, 16);
-  display.println("Value:");
-  display.setTextSize(3);
-  display.setCursor(0, 40);
-  display.println(value);
-  display.display();
-}
+MaxRemote fanRemote(2);
+MaxReceiver fanIrReceiver(3);
+ButtonArray buttons({ENCODER_BUTTON,MODE_BUTTON,AIRFLOW_BUTTON});
+MaxFanDisplay fanDisplay(6, 7);
+Encoder encoder(4, 5);
 
 
-// BLE command callback: convert FanState to MaxFanCommand and emit IR
 void onBLECommand(const String& json) {
   maxFanState.SetJson(json);
 }
 
-
-
-
-
-
-
 void setup() {
   Serial.begin(115200);
-  delay(1000);
-  Serial.println("MaxxFan Controller started");
-  
-  // Initialize OLED display
-  Wire.begin(OLED_SDA, OLED_SCL);
-  Wire.setClock(400000); // Fast I2C to improve reliability
+  delay(2000); 
+  Serial.println("Hello");
 
-  // I2C scan to confirm display presence
-  Serial.println("Scanning I2C bus...");
-  uint8_t foundDevices = 0;
-  for (uint8_t addr = 1; addr < 127; addr++) {
-    Wire.beginTransmission(addr);
-    if (Wire.endTransmission() == 0) {
-      Serial.print("I2C device found at 0x");
-      Serial.println(addr, HEX);
-      foundDevices++;
-    }
-    delay(2);
-  }
-  if (foundDevices == 0) {
-    Serial.println("No I2C devices found. Check wiring/power/SDA/SCL pins.");
-  }
-  Serial.println("I2C scan complete.");
-
-  if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
+  // 1. Erst das Display initialisieren (hier wird Wire.begin() aufgerufen)
+  if (!fanDisplay.begin()) { // Adresse meist 0x3C
     Serial.println(F("SSD1306 allocation failed"));
-    for (;;); // Don't proceed, loop forever
+    for (;;); 
   }
+
+  // 2. ERST JETZT die Geschwindigkeit erhöhen
+  Wire.setClock(400000); 
   
-  // Initialize rotary encoder (handles interrupts internally)
+  buttons.begin();
   encoder.begin();
-  encoder.reset();  // Start at zero position
-
-  // Show initial encoder value
-  drawEncoderValue(0);
-  Serial.println("OLED display initialized with encoder value");
-
-  
-  // Initialize IR receiver
-  fanReceiver.begin();
-  
-  // Initialize IR transmitter
+  encoder.reset();
+  fanIrReceiver.begin();
   fanRemote.begin();
-  
-  // Initialize BLE
-  fanBLE.begin("MaxxFan Controller");
-  fanBLE.setCommandCallback(onBLECommand);
-  
-  Serial.println("Setup complete. Waiting for BLE connections or IR signals...");
 }
-
 void loop() {
-  // Handle BLE connection/disconnection
   static bool wasConnected = false;
   bool isConnected = fanBLE.isConnected();
   
@@ -125,25 +64,32 @@ void loop() {
     // Restart advertising
     BLEDevice::startAdvertising();
   }
-  
-  // BLE commands are handled via callback in onBLECommand()
-  
+
+  fanDisplay.update(maxFanState, isConnected, testValue);
   fanRemote.send(maxFanState);
+  fanIrReceiver.update(maxFanState);
 
-  fanReceiver.update(maxFanState);
+  int delta = encoder.getDelta();
+  if(delta != 0){
+    testValue+=delta;
+    Serial.println(testValue);
+  }
 
+  if(buttons.wasPressed(ENCODER_BUTTON)){
+    Serial.println("ENCODER_BUTTON");
+    testValue+=1;
+  }
+  
+  if (buttons.wasPressed(AIRFLOW_BUTTON)){
+    Serial.println("AIRFLOW_BUTTON");
+    testValue +=1;
+  }
+    
 
-  // --- Rotary encoder handling via custom Encoder class (interrupt-based) ---
-  static long lastDisplayedValue = 0;
+  if (buttons.wasPressed(MODE_BUTTON)){
+    Serial.println("MODE_BUTTON");
+    testValue +=1;
+  }
 
-  // Encoder is updated via interrupts internally - just read the position
-  long pos = encoder.getPosition();
-
-  if (pos != lastDisplayedValue) {
-    drawEncoderValue(pos);
-    lastDisplayedValue = pos;
-    Serial.print("Encoder pos=");
-    Serial.println(pos);
-  } 
   
 }

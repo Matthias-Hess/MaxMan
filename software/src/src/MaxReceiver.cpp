@@ -32,8 +32,15 @@ bool MaxReceiver::update(MaxFanState & maxFanState) {
       Serial.print("OK");
       success = true;
     } else {
-      Serial.print("XX");
-    }
+      Serial.print("XX! Typ: ");
+      Serial.print(results.decode_type); 
+      Serial.print(" Bits: ");
+      Serial.println(results.bits);
+      // Das ist entscheidend:
+      if (results.bits == 0 && results.decode_type == -1) {
+        Serial.println("-> Geister-Trigger (Rauschen)");
+      }
+}
     resume();
   }
   if(success)
