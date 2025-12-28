@@ -56,7 +56,7 @@ std::string toString(CoverState mode) {
 
 CoverState toCoverState(const std::string& str) {
     if(str == "OPEN") return CoverState::OPEN;
-    if(str == "AUTO") return CoverState::CLOSED;
+    if(str == "CLOSED") return CoverState::CLOSED;
     throw std::invalid_argument("Invalid CoverState string: " + str);
 }
 
@@ -111,27 +111,37 @@ bool MaxFanState::SetJson(const String& jsonString) {
     return false;
   }
 
+  Serial.println("SerializationOK");
+
   if(doc.containsKey("mode")){
     SetMode(toMaxFanMode(doc["mode"]));
+    Serial.println("ModeOK");
   }
 
   if (doc.containsKey("cover")){
-    SetCover(toCoverState(doc["cover"]));
+    String coveText = doc["cover"];
+    Serial.println("Cover");
+    Serial.println(coveText);
+    SetCover(toCoverState(coveText.c_str()));
+    Serial.println("CoverOK");
   }
 
   if (doc.containsKey("airflow")){
     SetAirFlow(toMaxFanDirection(doc["airflow"]));
+    Serial.println("AirflowOK");
   }
 
   if (doc.containsKey("speed")){
     uint16_t speed = doc["speed"].as<uint16_t>();
     SetSpeed(speed);
+    Serial.println("SpeedOK");
     
   }
 
   if (doc.containsKey("temperature")){
     uint16_t tempC = doc["temperature"].as<uint16_t>();
     SetTempCelsius(tempC);
+    Serial.println("TempOK");
   }
 
   return true;
@@ -168,8 +178,10 @@ MaxFanMode MaxFanState::GetMode() const {
 void MaxFanState::SetMode(MaxFanMode mode) {
     switch (mode) {
         case MaxFanMode::OFF:
-            this->stateByte &= ~(MASK_FAN_ON | MASK_SPECIAL);
-            this->stateByte &= ~MASK_COVER_OPEN; 
+            this->stateByte &= ~MASK_FAN_ON;
+            this->stateByte &= ~MASK_SPECIAL;
+            this->stateByte &= ~MASK_COVER_OPEN;
+            this->stateByte &= ~MASK_AUTO;
             break;
 
         case MaxFanMode::AUTO:
@@ -217,7 +229,7 @@ void MaxFanState::SetCover(CoverState state) {
   if(state==CoverState::OPEN)
     this->stateByte |= MASK_COVER_OPEN;
   else
-    this->stateByte &= !MASK_COVER_OPEN;
+    this->stateByte &= (~MASK_COVER_OPEN);
 }
 
 

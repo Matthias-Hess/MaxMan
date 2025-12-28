@@ -1,28 +1,23 @@
 #ifndef MAXFANDISPLAY_H
 #define MAXFANDISPLAY_H
 
-#include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
+#include <Arduino.h>
+#include <U8g2lib.h>
+#include <Wire.h>
 #include <MaxFanState.h>
-
-#define SCREEN_WIDTH 128
-#define SCREEN_HEIGHT 64
 
 class MaxFanDisplay {
 public:
     MaxFanDisplay(uint8_t sda, uint8_t scl);
     bool begin();
     
-    // Die Hauptmethode: Aktualisiert den Bildschirm basierend auf dem Systemzustand
+    // Die Update-Methode zeichnet das komplette UI neu
     void update(const MaxFanState& state, bool bleConnected, long encoderPos);
 
 private:
-    Adafruit_SSD1306 _display;
+    // Wir nutzen den Hardware-I2C Treiber für SSD1306
+    U8G2_SSD1306_128X64_NONAME_F_HW_I2C _u8g2;
     uint8_t _sda, _scl;
-    
-    // Hilfsmethoden für Teilbereiche
-    void drawHeader(bool bleConnected);
-    void drawFanStats(const MaxFanState& state);
 };
 
 #endif

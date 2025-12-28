@@ -1,10 +1,8 @@
 #include "MaxReceiver.h"
-#include "MaxRemote.h"  // For getTemperatureFromPattern
 using namespace MaxFan;
-#define MAX_BITSTRING_LEN 200
-#include <stdlib.h>  // for strtol
 
-// Use a separate tick constant for the receiver conversion.
+
+
 #define RECEIVER_TICK_US 400
 
 // --- Constructor ---

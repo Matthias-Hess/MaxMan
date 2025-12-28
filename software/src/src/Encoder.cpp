@@ -56,8 +56,8 @@ void IRAM_ATTR Encoder::handleISR()
 int Encoder::getDelta()
 {
     noInterrupts();
-    int d = delta;
-    delta = 0;
+    int d = delta/4;
+    delta = delta-4*d;
     interrupts();
     return d;
 }
@@ -65,7 +65,7 @@ int Encoder::getDelta()
 int Encoder::getPosition()
 {
     noInterrupts();
-    int p = position;
+    int p = position/4;
     interrupts();
     return p;
 }

@@ -12,7 +12,7 @@
 
 #define ENCODER_BUTTON 8
 #define MODE_BUTTON 10
-#define AIRFLOW_BUTTON 9
+#define COVER_BUTTON 9
 
 
 MaxFanBLE fanBLE;
@@ -22,13 +22,15 @@ MaxFanState maxFanState;
 
 MaxRemote fanRemote(2);
 MaxReceiver fanIrReceiver(3);
-ButtonArray buttons({ENCODER_BUTTON,MODE_BUTTON,AIRFLOW_BUTTON});
+ButtonArray buttons({ENCODER_BUTTON,MODE_BUTTON,COVER_BUTTON});
 MaxFanDisplay fanDisplay(6, 7);
 Encoder encoder(4, 5);
 
 
 void onBLECommand(const String& json) {
+
   maxFanState.SetJson(json);
+  Serial.println("AFTER SETJSON");
 }
 
 void setup() {
@@ -50,7 +52,10 @@ void setup() {
   encoder.reset();
   fanIrReceiver.begin();
   fanRemote.begin();
+  fanBLE.setCommandCallback(onBLECommand);
+  fanBLE.begin();
 }
+
 void loop() {
   static bool wasConnected = false;
   bool isConnected = fanBLE.isConnected();
@@ -65,30 +70,79 @@ void loop() {
     BLEDevice::startAdvertising();
   }
 
-  fanDisplay.update(maxFanState, isConnected, testValue);
   fanRemote.send(maxFanState);
+
+  fanDisplay.update(maxFanState, isConnected, testValue);
+  
+  if(fanBLE.isConnected()){
+    fanBLE.notifyStatus(maxFanState.ToJson());
+  }
+
   fanIrReceiver.update(maxFanState);
 
   int delta = encoder.getDelta();
   if(delta != 0){
-    testValue+=delta;
-    Serial.println(testValue);
+    switch (maxFanState.GetMode())
+    {
+      case MaxFanMode::OFF:
+        break;
+
+      case MaxFanMode::MANUAL:
+        maxFanState.SetSpeed(maxFanState.GetSpeed() - 10*delta);
+        break;
+
+      case MaxFanMode::AUTO:
+        maxFanState.SetTempCelsius(maxFanState.GetTempCelsius()-delta);
+        break;
+        
+      default:
+        break;
+    }
   }
 
   if(buttons.wasPressed(ENCODER_BUTTON)){
     Serial.println("ENCODER_BUTTON");
-    testValue+=1;
+    maxFanState.SetAirFlow(maxFanState.GetAirFlow()==MaxFanDirection::IN ? MaxFanDirection::OUT: MaxFanDirection::IN);
+    
   }
   
-  if (buttons.wasPressed(AIRFLOW_BUTTON)){
-    Serial.println("AIRFLOW_BUTTON");
-    testValue +=1;
+  if (buttons.wasPressed(COVER_BUTTON)){
+    Serial.println("COVER_BUTTON");
+    Serial.println(maxFanState.GetStateByte(),BIN);
+    maxFanState.SetCover(maxFanState.GetCover()==CoverState::CLOSED ? CoverState::OPEN: CoverState::CLOSED);
+    Serial.println(maxFanState.GetStateByte(),BIN);
+    
   }
     
 
   if (buttons.wasPressed(MODE_BUTTON)){
     Serial.println("MODE_BUTTON");
-    testValue +=1;
+    switch (maxFanState.GetMode())
+    {
+      case MaxFanMode::OFF:
+        Serial.println("OFF->MANUAL");
+        maxFanState.SetMode(MaxFanMode::MANUAL);
+        break;
+
+      case MaxFanMode::MANUAL:
+        Serial.println("MANUAL->AUTO");
+        maxFanState.SetMode(MaxFanMode::AUTO);
+        break;
+
+      case MaxFanMode::AUTO:
+        Serial.println("AUTO->OFF");
+        maxFanState.SetMode(MaxFanMode::OFF);
+        if( maxFanState.GetMode() == MaxFanMode::OFF){
+           Serial.println("OFF as commanded");
+        } else {
+          Serial.println("NOT OFF !!");
+        }
+        break;
+        
+      default:
+        break;
+    }
+    
   }
 
   
