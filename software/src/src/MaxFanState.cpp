@@ -20,44 +20,70 @@ std::string toString(MaxFanMode mode) {
         case MaxFanMode::OFF: return "OFF";
         case MaxFanMode::AUTO: return "AUTO";
         case MaxFanMode::MANUAL: return "MANUAL";
-        default: throw std::invalid_argument("Unknown MaxFanMode");
+        default: return "???";
     }
 }
 
-MaxFanMode toMaxFanMode(const std::string& str) {
-    if(str == "OFF") return MaxFanMode::OFF;
-    if(str == "AUTO") return MaxFanMode::AUTO;
-    if(str == "MANUAL") return MaxFanMode::MANUAL;
-    throw std::invalid_argument("Invalid MaxFanMode string: " + str);
+// 1. Robuster Integer Parser
+// Akzeptiert int und float (z.B. 50.0), lehnt aber Strings/Bools ab.
+// Prüft min/max Grenzen.
+bool tryParseInt(JsonVariant variant, int& outVal, int min, int max) {
+    // Check: Ist es überhaupt eine Zahl? (Verhindert "true" oder "text")
+    if (!variant.is<float>() && !variant.is<int>()) {
+        return false;
+    }
+
+    // Wert holen (als float, um 50.0 zu unterstützen)
+    float fVal = variant.as<float>();
+    int val = (int)fVal;
+
+    // Bereichsprüfung
+    if (val < min || val > max) {
+        return false;
+    }
+
+    outVal = val;
+    return true;
+}
+
+// 2. Enum Parser (Zero-Copy mit const char*)
+bool tryParseFanMode(const char* str, MaxFanMode& outMode) {
+    if (!str) return false;
+    if (strcasecmp(str, "OFF") == 0)    { outMode = MaxFanMode::OFF; return true; }
+    if (strcasecmp(str, "AUTO") == 0)   { outMode = MaxFanMode::AUTO; return true; }
+    if (strcasecmp(str, "MANUAL") == 0) { outMode = MaxFanMode::MANUAL; return true; }
+    return false;
 }
 
 std::string toString(MaxFanDirection dir) {
     switch(dir) {
         case MaxFanDirection::IN: return "IN";
         case MaxFanDirection::OUT: return "OUT";
-        default: throw std::invalid_argument("Unknown MaxFanMode");
+        default: return "???";
     }
 }
 
-MaxFanDirection toMaxFanDirection(const std::string& str) {
-    if(str == "IN") return MaxFanDirection::IN;
-    if(str == "OUT") return MaxFanDirection::OUT;
-    
-    throw std::invalid_argument("Invalid toMaxFanDirection string: " + str);
+bool tryParseFanDirection(const char* str, MaxFanDirection& outDir) {
+    if (!str) return false;
+    if (strcasecmp(str, "IN") == 0)  { outDir = MaxFanDirection::IN; return true; }
+    if (strcasecmp(str, "OUT") == 0) { outDir = MaxFanDirection::OUT; return true; }
+    return false;
 }
 
 std::string toString(CoverState mode) {
     switch(mode) {
         case CoverState::OPEN: return "OPEN";
         case CoverState::CLOSED: return "CLOSED";
-        default: throw std::invalid_argument("Unknown CoverState");
+        default: return "???";
     }
 }
 
-CoverState toCoverState(const std::string& str) {
-    if(str == "OPEN") return CoverState::OPEN;
-    if(str == "CLOSED") return CoverState::CLOSED;
-    throw std::invalid_argument("Invalid CoverState string: " + str);
+
+bool tryParseCoverState(const char* str, CoverState& outCover) {
+    if (!str) return false;
+    if (strcasecmp(str, "OPEN") == 0)   { outCover = CoverState::OPEN; return true; }
+    if (strcasecmp(str, "CLOSED") == 0) { outCover = CoverState::CLOSED; return true; }
+    return false;
 }
 
 MaxFanState::MaxFanState() {
@@ -103,50 +129,108 @@ void MaxFanState::SetBytes(uint8_t state, uint8_t speed, uint8_t tempF) {
 }
 
 // Set from JSON string (for BLE reception)
-bool MaxFanState::SetJson(const String& jsonString) {
-  StaticJsonDocument<200> doc;
-  DeserializationError error = deserializeJson(doc, jsonString);
+MaxError MaxFanState::SetJson(const String& jsonString) {
+    // Reserviere Puffer (StaticJsonDocument auf Stack -> kein Heap-Stress)
+    StaticJsonDocument<256> doc;
+    DeserializationError error = deserializeJson(doc, jsonString);
   
-  if (error) {
-    return false;
-  }
+    if (error) {
+        Serial.print("JSON Parse Error: ");
+        Serial.println(error.c_str());
+        return MaxError::BLE_PARSE_ERROR; // Fehlercode: Ungültiges JSON
+    }
 
-  Serial.println("SerializationOK");
+    // =========================================================
+    // PHASE 1: VALIDIERUNG & EXTRAKTION (Transaction Prepare)
+    // Wir sammeln erst alle Werte. Wenn IRGENDWAS falsch ist,
+    // brechen wir ab, bevor wir den State ändern.
+    // =========================================================
 
-  if(doc.containsKey("mode")){
-    SetMode(toMaxFanMode(doc["mode"]));
-    Serial.println("ModeOK");
-  }
+    // --- MODE ---
+    MaxFanMode newMode;
+    bool hasMode = false;
+    if (doc.containsKey("mode")) {
+        // 1. Typ-Check: Ist es ein String?
+        if (!doc["mode"].is<const char*>()) {
+            Serial.println("Err: 'mode' must be string"); 
+            return MaxError::BLE_INVALID_MODE; 
+        }
+        // 2. Inhalt-Check: Ist der String gültig?
+        const char* s = doc["mode"];
+        if (!tryParseFanMode(s, newMode)) {
+            Serial.print("Err: Invalid mode value: "); Serial.println(s);
+            return MaxError::BLE_INVALID_MODE;
+        }
+        hasMode = true;
+    }
 
-  if (doc.containsKey("cover")){
-    String coveText = doc["cover"];
-    Serial.println("Cover");
-    Serial.println(coveText);
-    SetCover(toCoverState(coveText.c_str()));
-    Serial.println("CoverOK");
-  }
+    // --- COVER ---
+    CoverState newCover;
+    bool hasCover = false;
+    if (doc.containsKey("cover")) {
+        if (!doc["cover"].is<const char*>()) {
+            Serial.println("Err: 'cover' must be string");
+            return MaxError::BLE_INVALID_COVER;
+        }
+        const char* s = doc["cover"];
+        if (!tryParseCoverState(s, newCover)) {
+            Serial.print("Err: Invalid cover value: "); Serial.println(s);
+            return MaxError::BLE_INVALID_COVER;
+        }
+        hasCover = true;
+    }
 
-  if (doc.containsKey("airflow")){
-    SetAirFlow(toMaxFanDirection(doc["airflow"]));
-    Serial.println("AirflowOK");
-  }
+    // --- AIRFLOW ---
+    MaxFanDirection newAir;
+    bool hasAir = false;
+    if (doc.containsKey("airflow")) {
+        if (!doc["airflow"].is<const char*>()) {
+            return MaxError::BLE_INVALID_AIRFLOW;
+        }
+        const char* s = doc["airflow"];
+        if (!tryParseFanDirection(s, newAir)) {
+             return MaxError::BLE_INVALID_AIRFLOW;
+        }
+        hasAir = true;
+    }
 
-  if (doc.containsKey("speed")){
-    uint16_t speed = doc["speed"].as<uint16_t>();
-    SetSpeed(speed);
-    Serial.println("SpeedOK");
-    
-  }
+    // --- SPEED ---
+    int newSpeed;
+    bool hasSpeed = false;
+    if (doc.containsKey("speed")) {
+        // Nutzt den robusten Int-Helper (Min: 0, Max: 100)
+        // Akzeptiert auch 50.0, lehnt aber Strings/"true" ab.
+        if (!tryParseInt(doc["speed"], newSpeed, 0, 100)) {
+            return MaxError::BLE_INVALID_SPEED;
+        }
+        hasSpeed = true;
+    }
 
-  if (doc.containsKey("temperature")){
-    uint16_t tempC = doc["temperature"].as<uint16_t>();
-    SetTempCelsius(tempC);
-    Serial.println("TempOK");
-  }
+    // --- TEMPERATURE ---
+    int newTemp;
+    bool hasTemp = false;
+    if (doc.containsKey("temperature")) {
+        // Plausibilitätsbereich: -20°C bis 80°C
+        if (!tryParseInt(doc["temperature"], newTemp, -20, 80)) {
+            return MaxError::BLE_INVALID_TEMP;
+        }
+        hasTemp = true;
+    }
 
-  return true;
+    // =========================================================
+    // PHASE 2: ANWENDUNG (Commit Transaction)
+    // Wir sind hier sicher, dass ALLES validiert ist.
+    // Jetzt darf der State geändert werden.
+    // =========================================================
+
+    if (hasMode)  SetMode(newMode);
+    if (hasCover) SetCover(newCover);
+    if (hasAir)   SetAirFlow(newAir);
+    if (hasSpeed) SetSpeed(newSpeed);
+    if (hasTemp)  SetTempCelsius(newTemp);
+
+    return MaxError::NONE;
 }
-
 // Convert to JSON string (for BLE transmission)
 String MaxFanState::ToJson() const {
   StaticJsonDocument<200> doc;

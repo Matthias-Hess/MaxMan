@@ -3,6 +3,8 @@
 
 #include <Arduino.h>
 #include <ArduinoJson.h>
+#include <strings.h>
+#include <MaxErrors.h>
 
 enum class CoverState {CLOSED, OPEN};
 std::string toString(CoverState mode);
@@ -26,8 +28,8 @@ public:
   // Initialize from raw bytes (for IR reception)
   void SetBytes(uint8_t state, uint8_t speed, uint8_t temp);
   
-  // Initialize from JSON string (for BLE reception)
-  bool SetJson(const String& jsonString);
+
+  MaxError SetJson(const String& jsonString);
   
   // Convert to JSON string (for BLE transmission)
   String ToJson() const;

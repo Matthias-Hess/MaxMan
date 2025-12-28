@@ -49,6 +49,11 @@ void drawAuto(const MaxFanState& state, U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2
     u8g2.drawStr(35, 42, tempStr.c_str());
 }
 
+void MaxFanDisplay::showError(MaxError error) {
+    _activeError = error;
+    _errorStartTime = esp_timer_get_time();
+}
+
 
 void MaxFanDisplay::update(const MaxFanState& state, bool bleConnected, long encoderPos) {
     _u8g2.clearBuffer();
@@ -93,7 +98,31 @@ void MaxFanDisplay::update(const MaxFanState& state, bool bleConnected, long enc
     }
         
    
-        
+    if (_activeError != MaxError::NONE) {
+        // Zeit prüfen
+        if (esp_timer_get_time() - _errorStartTime > _errorDuration) {
+            _activeError = MaxError::NONE; // Fehlerzeit abgelaufen
+        } else {
+            _u8g2.clearBuffer();
+            _u8g2.setFontMode(1);
+            _u8g2.setBitmapMode(1);
+            
+            // outerBox
+            _u8g2.drawBox(4, 5, 119, 45);
+
+            // innerBox
+            _u8g2.setDrawColor(2);
+            _u8g2.drawBox(5, 19, 117, 30);
+
+            // Caption
+            _u8g2.setFont(u8g2_font_profont11_tr);
+            _u8g2.drawStr(10, 16, getMaxErrorCaption(_activeError));
+
+            // message
+            _u8g2.setFont(u8g2_font_profont12_tr);
+            _u8g2.drawStr(13, 37, getMaxErrorText(_activeError));
+        }
+    }    
     
     _u8g2.sendBuffer();
 }

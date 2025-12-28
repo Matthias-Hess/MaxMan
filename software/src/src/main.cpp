@@ -9,6 +9,7 @@
 #include <MaxFanState.h>
 #include <MaxFanDisplay.h>
 #include <ButtonArray.h>
+#include<MaxErrors.h>
 
 #define ENCODER_BUTTON 8
 #define MODE_BUTTON 10
@@ -28,15 +29,14 @@ Encoder encoder(4, 5);
 
 
 void onBLECommand(const String& json) {
-
-  maxFanState.SetJson(json);
-  Serial.println("AFTER SETJSON");
+  MaxError error=maxFanState.SetJson(json);
+  if (error != MaxError::NONE)
+    fanDisplay.showError(error);
 }
 
 void setup() {
   Serial.begin(115200);
   delay(2000); 
-  Serial.println("Hello");
 
   // 1. Erst das Display initialisieren (hier wird Wire.begin() aufgerufen)
   if (!fanDisplay.begin()) { // Adresse meist 0x3C
