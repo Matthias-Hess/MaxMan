@@ -14,7 +14,6 @@ static const unsigned char image_BTConnected_bits[] U8X8_PROGMEM = {0x10,0x31,0x
 
 MaxFanDisplay::MaxFanDisplay(uint8_t sda, uint8_t scl) 
 : _u8g2(U8G2_R0, U8X8_PIN_NONE), _sda(sda), _scl(scl) {}
-
 bool MaxFanDisplay::begin() {
     Wire.begin(_sda, _scl);
     _u8g2.begin();

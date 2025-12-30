@@ -22,6 +22,7 @@ struct KeyEvent {
     bool IsSingle(int pinId) const;
     bool IsChord(int pinIdA, int pinIdB) const;
 
+
 private:
     // Interne Hilfsmethode: Wandelt Pin-ID in Bit-Index um
     int getBitIndex(int pinId) const;
@@ -41,6 +42,13 @@ public:
     // Prüfen ob Events da sind
     bool hasEvent();
 
+    // bricht den gerade pendenten Tastendruck (Chord) ab.
+    // er wird dann beim Loslassen der Tasten nicht als Event ausgegeben
+    void CancelCurrentChord();
+
+    // Liefert true, wenn der Button momentan aktiv ist.
+    bool IsKeyDown(int pinId);
+
     // Das nächste Event holen
     KeyEvent popEvent();
 
@@ -49,7 +57,8 @@ private:
     std::queue<KeyEvent> _eventQueue; // Warteschlange
     uint16_t _currentSequence;        // Aktuell gedrückte Tasten (Bitmaske)
     bool _isRecording;                // Status-Flag
-
+    bool _currentChordIsCancelled;    // true, wenn der aktuell recordete Chrod gecancelled wurde
+    long lastButtonCheck =0;          // millis des letzten Checks
     // Hilfsmethode zum Hardware-Lesen
     uint16_t readHardware();
 };

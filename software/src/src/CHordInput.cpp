@@ -63,8 +63,33 @@ uint16_t ChordInput::readHardware() {
     }
     return inputMask;
 }
+void ChordInput::CancelCurrentChord() {
+    if(!_isRecording) return;
+    
+    _currentChordIsCancelled = true;
+
+}
+
+bool ChordInput::IsKeyDown(int pin)
+{
+    uint16_t currentState = readHardware();
+    if (currentState==0) return false;
+    for (size_t i = 0; i < _pins.size(); ++i) {
+        if ((_pins[i]) == pin) {
+            return (currentState & (1 << i)) != 0;
+        }
+    }
+    return false;
+}
 
 void ChordInput::tick() {
+    if (millis() - lastButtonCheck < 20) {
+      return;
+    }
+
+    lastButtonCheck = millis();
+
+
     uint16_t liveInput = readHardware();
 
     if (liveInput > 0) {
@@ -74,18 +99,17 @@ void ChordInput::tick() {
     } 
     else {
         // FALL: Alle Tasten losgelassen
-        if (_isRecording) {
+        if (_isRecording && ! _currentChordIsCancelled) {
             // Sequenz ist beendet -> Speichern
             if (_currentSequence > 0) {
                 // Event erstellen und Map-Pointer übergeben
                 KeyEvent evt(_currentSequence, &_pins);
                 _eventQueue.push(evt);
             }
-            
-            // Reset
-            _currentSequence = 0;
-            _isRecording = false;
         }
+        _currentChordIsCancelled = false;
+        _currentSequence = 0;
+        _isRecording = false;
     }
 }
 

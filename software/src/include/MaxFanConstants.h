@@ -13,6 +13,12 @@ namespace MaxFan {
       0xFF, 0x23
     };
 
+
+
 }
+
+#define ENCODER_BUTTON 8
+#define MODE_BUTTON 10
+#define COVER_BUTTON 9
 
 #endif // MAXFANCONSTANTS_H
