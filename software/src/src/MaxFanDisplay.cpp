@@ -26,26 +26,26 @@ bool MaxFanDisplay::begin() {
 void drawOff(const MaxFanState& state, U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2){
     u8g2.setFont(u8g2_font_t0_11_tr);
     u8g2.setDrawColor(1);
-    u8g2.setFont(u8g2_font_profont29_tr);
+    u8g2.setFont(u8g2_font_helvB18_tf);
     u8g2.drawStr(35, 42, "OFF");
 }
 
 void drawManual(const MaxFanState& state, U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2){
     u8g2.drawXBMP(5, 18, 13, 31, image_manual_bits);
     u8g2.setDrawColor(1);
-    u8g2.setFont(u8g2_font_profont29_tr);
+    u8g2.setFont(u8g2_font_helvB18_tf);
     String speedStr;
-    speedStr = String(state.GetSpeed()) + "%";
+    speedStr = String(state.GetSpeed()) + " %";
     u8g2.drawStr(35, 42, speedStr.c_str());
 }
 
 void drawAuto(const MaxFanState& state, U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2){
     u8g2.drawXBMP(5, 17, 13, 31, image_auto_bits);
     u8g2.setDrawColor(1);
-    u8g2.setFont(u8g2_font_profont29_tr);
+    u8g2.setFont(u8g2_font_helvB18_tf);
     String tempStr;
-    tempStr = String(state.GetTempCelsius()) + "°C";
-    u8g2.drawStr(35, 42, tempStr.c_str());
+    tempStr = String(state.GetTempCelsius()) + " " "\xC2\xB0" "C"; 
+    u8g2.drawUTF8(35, 42, tempStr.c_str());
 }
 
 void MaxFanDisplay::showError(MaxError error) {
@@ -61,6 +61,52 @@ void MaxFanDisplay::update(const MaxFanState& state, bool bleConnected, long enc
     _u8g2.setBitmapMode(1);
 
      MaxFanMode mode = state.GetMode();
+
+     // MenuBar
+     _u8g2.drawBox(0, 0, 127, 14);
+     
+   
+     _u8g2.setDrawColor(2);
+
+     // OffRect
+     if(mode == MaxFanMode::OFF){
+        _u8g2.drawBox(1, 1, 23, 12);
+     } else {
+        _u8g2.drawFrame(1, 1, 23, 12);
+     }
+     
+     // OffText
+     _u8g2.setFont(u8g2_font_t0_11_tr);
+     _u8g2.drawStr(3, 11, "OFF");
+ 
+     
+     // ManuellRect
+     if(mode == MaxFanMode::MANUAL){
+        _u8g2.drawBox(38, 1, 45, 12);
+     } else {
+        _u8g2.drawFrame(38, 1, 45, 12);
+     }
+     
+     // ManuellText
+     _u8g2.setFont(u8g2_font_t0_12_tr);
+     _u8g2.drawStr(40, 11, "MANUELL");
+     
+     
+     // AutoRect
+    if(mode == MaxFanMode::AUTO){
+        _u8g2.drawBox(97, 1, 28, 12);
+     } else {
+        _u8g2.drawFrame(97, 1, 28, 12);
+     }
+
+     // AutoText
+     _u8g2.setFont(u8g2_font_t0_11_tr);
+     _u8g2.drawStr(99, 11, "AUTO");
+     
+     
+     
+     
+     
 
     switch (state.GetMode())
     {
@@ -86,15 +132,15 @@ void MaxFanDisplay::update(const MaxFanState& state, bool bleConnected, long enc
 
     
     if (state.GetCover() == CoverState::OPEN) {
-         _u8g2.drawXBMP(90, 46, 32, 16, image_open_bits);
+         _u8g2.drawXBMP(90, 48, 32, 16, image_open_bits);
     } else {
-        _u8g2.drawXBMP(90, 46, 32, 16, image_closed_bits);
+        _u8g2.drawXBMP(90, 48, 32, 16, image_closed_bits);
     }
 
    if (state.GetAirFlow() == MaxFanDirection::IN) {
-        _u8g2.drawXBMP(4, 49, 30, 13, image_in_bits);
+        _u8g2.drawXBMP(4, 51, 30, 13, image_in_bits);
     } else {
-        _u8g2.drawXBMP(4, 49, 30, 13, image_out_bits);
+        _u8g2.drawXBMP(4, 51, 30, 13, image_out_bits);
     }
         
    
