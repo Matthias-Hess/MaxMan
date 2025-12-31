@@ -1,53 +1,72 @@
 #include "MaxFanBLE.h"
 
-// UUIDs (beibehalten aus deinem vorherigen Entwurf)
 #define SERVICE_UUID        "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
 #define COMMAND_UUID        "beb5483e-36e1-4688-b7f5-ea07361b26a8"
 #define STATUS_UUID         "cba1d466-344c-4be3-ab3f-1890d5c0c0c0"
 
 MaxFanBLE::MaxFanBLE() 
   : _pServer(nullptr), _pCommandChar(nullptr), _pStatusChar(nullptr), 
-    _onCommandReceived(nullptr), _deviceConnected(false) {
+    _onCommandReceived(nullptr), _deviceConnected(false), _pinCode(123456) {
 }
 
 void MaxFanBLE::begin(const char* deviceName) {
-    // 1. BLE Device Initialisierung
+    // 1. Initialisierung
     BLEDevice::init(deviceName);
+
+    // 2. PIN laden
+    Preferences prefs;
+    prefs.begin("config", false); // Namespace passend zu ModeConfig
+    uint32_t storedPin = prefs.getInt("blepin", 0);
     
-    // 2. Server erstellen
+    if (storedPin == 0) {
+        // Falls noch nie gesetzt, generieren und speichern
+        _pinCode = (esp_random() % 900000) + 100000;
+        prefs.putInt("blepin", _pinCode);
+    } else {
+        _pinCode = storedPin;
+    }
+    prefs.end();
+    
+    Serial.printf("BLE: Security PIN ist %d\n", _pinCode);
+
+    // 3. Security Einstellungen (Still notwendig für PIN-Abfrage am Handy)
+    BLEDevice::setEncryptionLevel(ESP_BLE_SEC_ENCRYPT_MITM);
+    BLEDevice::setSecurityCallbacks(new MySecurityCallbacks());
+
+    BLESecurity *pSecurity = new BLESecurity();
+    pSecurity->setStaticPIN(_pinCode); 
+    pSecurity->setAuthenticationMode(ESP_LE_AUTH_REQ_SC_MITM_BOND);
+    // IO_CAP_OUT signalisiert dem Handy: "Ich zeige dir was an (den statischen PIN), tipp ihn ein."
+    pSecurity->setCapability(ESP_IO_CAP_OUT); 
+    pSecurity->setInitEncryptionKey(ESP_BLE_ENC_KEY_MASK | ESP_BLE_ID_KEY_MASK);
+    pSecurity->setRespEncryptionKey(ESP_BLE_ENC_KEY_MASK | ESP_BLE_ID_KEY_MASK);
+
+    // 4. Server & Service
     _pServer = BLEDevice::createServer();
     _pServer->setCallbacks(new MyServerCallbacks(this));
     
-    // 3. Service erstellen
     BLEService* pService = _pServer->createService(SERVICE_UUID);
     
-    // 4. Command Characteristic (Vom Handy zum XIAO - WRITE)
-    _pCommandChar = pService->createCharacteristic(
-        COMMAND_UUID,
-        BLECharacteristic::PROPERTY_WRITE
-    );
+    // 5. Characteristics (Verschlüsselt)
+    _pCommandChar = pService->createCharacteristic(COMMAND_UUID, BLECharacteristic::PROPERTY_WRITE);
+    _pCommandChar->setAccessPermissions(ESP_GATT_PERM_WRITE_ENC_MITM); 
     _pCommandChar->setCallbacks(new MyCharCallbacks(this));
     
-    // 5. Status Characteristic (Vom XIAO zum Handy - NOTIFY/READ)
-    _pStatusChar = pService->createCharacteristic(
-        STATUS_UUID,
-        BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY
-    );
-    // Notwendig, damit das Handy auf Notifications "hören" kann
+    _pStatusChar = pService->createCharacteristic(STATUS_UUID, BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY);
+    _pStatusChar->setAccessPermissions(ESP_GATT_PERM_READ_ENC_MITM);
     _pStatusChar->addDescriptor(new BLE2902());
     
-    // 6. Service starten
     pService->start();
     
-    // 7. Advertising (Sichtbarkeit) starten
+    // 6. Advertising
     BLEAdvertising* pAdvertising = BLEDevice::getAdvertising();
     pAdvertising->addServiceUUID(SERVICE_UUID);
-    pAdvertising->setScanResponse(false);
-    pAdvertising->setMinPreferred(0x06); // Hilft bei der Verbindungskompatibilität
+    pAdvertising->setScanResponse(true);
+    pAdvertising->setMinPreferred(0x06); 
     pAdvertising->setMinPreferred(0x12);
     BLEDevice::startAdvertising();
 
-    Serial.println("BLE Transport-Layer aktiv: Warte auf Verbindung...");
+    Serial.println("BLE bereit (Sicherer Modus).");
 }
 
 void MaxFanBLE::setCommandCallback(CommandCallback callback) {
@@ -65,14 +84,22 @@ bool MaxFanBLE::isConnected() {
     return _deviceConnected;
 }
 
-// --- Callback Implementierungen ---
+// --- Callbacks ---
+
+void MaxFanBLE::MyServerCallbacks::onConnect(BLEServer* s) {
+    _parent->_deviceConnected = true;
+    Serial.println("BLE: Client verbunden.");
+}
+
+void MaxFanBLE::MyServerCallbacks::onDisconnect(BLEServer* s) {
+    _parent->_deviceConnected = false;
+    Serial.println("BLE: Client getrennt.");
+    BLEDevice::startAdvertising(); 
+}
 
 void MaxFanBLE::MyCharCallbacks::onWrite(BLECharacteristic* pChar) {
-    // Rohen Wert aus der Characteristic lesen
     std::string rxValue = pChar->getValue();
-    
     if (rxValue.length() > 0 && _parent->_onCommandReceived) {
-        // String konvertieren und direkt an den registrierten Callback im Main weitergeben
         _parent->_onCommandReceived(String(rxValue.c_str()));
     }
 }

@@ -15,7 +15,7 @@ public:
     // Die Update-Methode zeichnet das komplette UI neu
     void update(const MaxFanState& state, bool bleConnected, long encoderPos);
     void showError(MaxError error);
-
+    
 private:
     // Wir nutzen den Hardware-I2C Treiber für SSD1306
     U8G2_SSD1306_128X64_NONAME_F_HW_I2C _u8g2;

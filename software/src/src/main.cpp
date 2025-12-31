@@ -92,7 +92,7 @@ void setup() {
   fanRemote.begin();
   
   fanBLE.setCommandCallback(onBLECommand);
-  fanBLE.begin();
+   fanBLE.begin();
 
   // 2. Modi Instanziieren (Dependency Injection)
   // Wir übergeben alle Hardware-Objekte, die der jeweilige Mode braucht.
@@ -120,6 +120,7 @@ void setup() {
 }
 
 void loop() {
+  
   // --- A. Globale Input Pflege ---
   // Das muss hier passieren, damit das Entprellen (Debounce) 
   // unabhängig von der Ausführungszeit des aktuellen Modes funktioniert.

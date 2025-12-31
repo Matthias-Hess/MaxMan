@@ -20,14 +20,17 @@ public:
 private:
     static char wifiPassword[GEM_STR_LEN];
     static int connection; // 0 = None, 1 = BLE, 2 = WLAN
+    static int blePin;
     GEM_u8g2 _menu;
     GEMPage _pageMain;
     GEMItem _itemExit;
-    GEMItem _itemPair;
+    GEMItem _itemGenerateNewPIN;
     GEMItem _itemPassword; 
     GEMItem _itemConnection;
+    GEMItem _itemBlePin;
+
     static void callbackExit();
-    static void callbackPair();
+    static void callbackGenerateNewPIN();
     static void save();
     static void load();
     static ModeConfig* instance;

@@ -1,12 +1,45 @@
 #include "ModeConfig.h"
 #include <Preferences.h>
+#include <BLEDevice.h>
+#include "esp_gap_ble_api.h"
+// --- HILFSFUNKTION: Manuelles Löschen aller Bonds ---
+// Da esp_ble_bond_dev_delete_all() auf dem C3 oft fehlt,
+// iterieren wir durch die Liste und löschen einzeln.
+void clearBonds() {
+    int dev_num = esp_ble_get_bond_device_num();
+    if (dev_num == 0) {
+        Serial.println("BLE: Keine gespeicherten Bindungen gefunden.");
+        return;
+    }
+
+    Serial.printf("BLE: Lösche %d gespeicherte Bindungen...\n", dev_num);
+
+    // Speicher reservieren für die Liste der Geräte
+    esp_ble_bond_dev_t *dev_list = (esp_ble_bond_dev_t *)malloc(sizeof(esp_ble_bond_dev_t) * dev_num);
+    
+    if (dev_list) {
+        esp_ble_get_bond_device_list(&dev_num, dev_list);
+        for (int i = 0; i < dev_num; i++) {
+            esp_ble_remove_bond_device(dev_list[i].bd_addr);
+        }
+        free(dev_list); // Speicher freigeben
+        Serial.println("BLE: Alle Bindungen gelöscht.");
+    } else {
+        Serial.println("BLE: Fehler bei Speicherreservierung (clearBonds).");
+    }
+}
+// ----------------------------------------------------
+
 
 static bool _mustExit;
 Preferences prefs; 
 
 ModeConfig* ModeConfig::instance = nullptr;
 char ModeConfig::wifiPassword[GEM_STR_LEN] = "Start123";
+int ModeConfig::blePin = 0;
 int ModeConfig::connection = 0;
+
+int originalBlePin=0;
 
 SelectOptionInt optionsConnection[] = {
     {"None", 0},
@@ -19,31 +52,29 @@ GEMSelect selectConnection(3, optionsConnection);
 
 ModeConfig::ModeConfig(U8G2* display, Encoder* encoder, ChordInput* input)
     : 
-    // --- HIER IST DER FIX ---
-    // Wir rufen den Konstruktor der Basisklasse auf und geben die Hardware weiter.
-    // Da 'display' hier ein Zeiger ist, 'AppMode' aber eine Referenz will, schreiben wir *display.
-    AppMode(*display, *encoder, *input), 
-    // ------------------------
-
-    // Jetzt initialisieren wir die GEM Objekte
-    // (Achtung: Wir nutzen hier *display, da wir den Zeiger dereferenzieren müssen)
+     AppMode(*display, *encoder, *input), 
     _menu(*display, GEM_POINTER_ROW, GEM_ITEMS_COUNT_AUTO),
     _pageMain("Main Menu"),
     _itemExit("Exit Configuration", callbackExit),
-    _itemPair("Pair", callbackPair),
+    _itemGenerateNewPIN("Generate new PIN", callbackGenerateNewPIN),
     _itemPassword("WLAN PW:", wifiPassword),
-    _itemConnection("Connection", connection, selectConnection)
+    _itemConnection("Connection", connection, selectConnection),
+    _itemBlePin("PIN", blePin)
 {
     instance = this;
+    
 
     // --- WICHTIG: Menü-Struktur nur EINMAL im Konstruktor aufbauen ---
     _pageMain.addMenuItem(_itemConnection);
     _pageMain.addMenuItem(_itemPassword);
-    _pageMain.addMenuItem(_itemPair);
+    _pageMain.addMenuItem(_itemGenerateNewPIN);
+    _pageMain.addMenuItem(_itemBlePin);
     _pageMain.addMenuItem(_itemExit);
     _itemPassword.setAdjustedASCIIOrder();
+    
 
     load();
+    originalBlePin = blePin;
 
     
     // Seite registrieren (optional, aber gut für GEM Struktur)
@@ -62,6 +93,11 @@ void ModeConfig::enter() {
 ModeAction ModeConfig::loop() {
 
     bool actionDetected = false;
+    if(ModeConfig::blePin <100000){
+        ModeConfig::blePin +=100000;
+        _menu.drawMenu();
+    }
+        
 
     if(_mustExit) return ModeAction::SWITCH_TO_STANDARD;
 
@@ -75,13 +111,13 @@ ModeAction ModeConfig::loop() {
         actionDetected = true;
     }
         
-    if(connection==1 && _itemPair.getHidden()){
-        _itemPair.show();
+    if(connection==1 && _itemGenerateNewPIN.getHidden()){
+        _itemGenerateNewPIN.show();
         actionDetected = true;
     }
 
-    if(connection!=1 && !_itemPair.getHidden()){
-        _itemPair.hide();
+    if(connection!=1 && !_itemGenerateNewPIN.getHidden()){
+        _itemGenerateNewPIN.hide();
         actionDetected = true;
     }
     
@@ -143,43 +179,52 @@ void ModeConfig::callbackExit() {
     save();
     ESP.restart();
 }
-void ModeConfig::callbackPair() {
-    
+void ModeConfig::callbackGenerateNewPIN() {
+    ModeConfig::blePin = (esp_random() % 900000) + 100000; // gespeichert wird später
 }
 void ModeConfig::callbackPassword(GEMCallbackData data) {
-    Serial.println(F("--- PASSWORD CALLBACK ---"));
     
-    // Test 1: Statische Variable direkt lesen
-    Serial.print(F("Wert in static _wifiPassword: "));
-    Serial.println(wifiPassword);
-
-    // Test 2: Checken ob GEM Pointer jetzt gültig ist
-    if (data.valChar != nullptr) {
-        Serial.print(F("Wert von GEM (valChar): "));
-        Serial.println(data.valChar);
-    } else {
-        Serial.println(F("GEM Pointer ist immer noch NULL!"));
-    }
 }
 
 void ModeConfig::save() {
-    // 1. Namespace öffnen (Name max 15 Zeichen!, false = Read/Write)
     prefs.begin("config", false); 
 
     // 2. Werte schreiben
     prefs.putInt("connection", ModeConfig::connection);
+    prefs.putInt("blepin", ModeConfig::blePin);
     prefs.putString("wifiPassword", ModeConfig::wifiPassword);
-    
-
     // 3. Schließen
     prefs.end();
+    
+    if(originalBlePin != blePin){
+       Serial.println("PIN wurde geändert. Starte Bonding-Löschung...");
+       
+       // Damit wir Bonds löschen können, muss der BLE Stack initialisiert sein.
+       // Wir starten ihn kurz "dummy", falls er nicht läuft.
+       BLEDevice::init("TEMP_CLEAR"); 
+       
+       // Manuelle Löschung aufrufen
+       clearBonds();
+       
+       // WICHTIG: Kurze Pause für Flash-Vorgänge
+       delay(500); 
+    }
 }
 
 void ModeConfig::load() {
-    prefs.begin("config", true); // true = ReadOnly (sicherer)
+    prefs.begin("config", false); // true = ReadOnly (sicherer)
 
     
     ModeConfig::connection = prefs.getInt("connection", 0);
+    ModeConfig::blePin = prefs.getInt("blepin",0);
+
+    if(ModeConfig::blePin==0){
+        Serial.println("Kein BLE PIN vorhanden, ich mache einen...");
+        ModeConfig::blePin = (esp_random() % 900000) + 100000;
+        
+        // Speichern für den nächsten Start
+        prefs.putInt("blepin", ModeConfig::blePin);
+    }
 
     String tempPassword = prefs.getString("wifiPassword", "yourPassword");
     strncpy(wifiPassword, tempPassword.c_str(), GEM_STR_LEN);

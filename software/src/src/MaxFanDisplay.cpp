@@ -54,6 +54,7 @@ void MaxFanDisplay::showError(MaxError error) {
 }
 
 
+
 void MaxFanDisplay::update(const MaxFanState& state, bool bleConnected, long encoderPos) {
     _u8g2.clearBuffer();
     _u8g2.setFontMode(1);
@@ -121,7 +122,8 @@ void MaxFanDisplay::update(const MaxFanState& state, bool bleConnected, long enc
             _u8g2.setFont(u8g2_font_profont12_tr);
             _u8g2.drawStr(13, 37, getMaxErrorText(_activeError));
         }
-    }    
+    }
+    
     
     _u8g2.sendBuffer();
 }
