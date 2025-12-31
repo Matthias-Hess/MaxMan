@@ -23,6 +23,8 @@ bool MaxFanDisplay::begin() {
 }
 
 
+
+
 void drawOff(const MaxFanState& state, U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2){
     u8g2.setFont(u8g2_font_t0_11_tr);
     u8g2.setDrawColor(1);
