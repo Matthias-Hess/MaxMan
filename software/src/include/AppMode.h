@@ -18,7 +18,6 @@ protected:
     ChordInput& _buttons;
 
 public:
-    
     AppMode(U8G2& display, Encoder& encoder, ChordInput& buttons) 
         : _display(display), _encoder(encoder), _buttons(buttons) {}
 
