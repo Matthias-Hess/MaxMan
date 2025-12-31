@@ -29,11 +29,13 @@ jobs:
     # 4. Bibliotheken installieren (falls nötig, macht pio run oft automatisch)
     # und Projekt bauen
     - name: Run PlatformIO
-      run: pio run
+      run: pio run -d software/src
 
     # 5. Das Ergebnis (firmware.bin) sichern, damit du es runterladen kannst
     - name: Upload Firmware Artifact
       uses: actions/upload-artifact@v4
       with:
         name: firmware-esp32c3
-        path: .pio/build/seeed_xiao_esp32c3/firmware.bin
+        # ACHTUNG: Pfad anpassen an deine platformio.ini Umgebung!
+        # Wenn deine env [env:seeed_xiao_esp32c3] heißt, dann so:
+        path: software/src/.pio/build/seeed_xiao_esp32c3/firmware.bin
