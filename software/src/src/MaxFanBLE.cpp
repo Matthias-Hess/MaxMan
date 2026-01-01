@@ -1,12 +1,12 @@
 #include "MaxFanBLE.h"
-
+#include "MaxFanConfig.h"
 #define SERVICE_UUID        "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
 #define COMMAND_UUID        "beb5483e-36e1-4688-b7f5-ea07361b26a8"
 #define STATUS_UUID         "cba1d466-344c-4be3-ab3f-1890d5c0c0c0"
 
 MaxFanBLE::MaxFanBLE() 
   : _pServer(nullptr), _pCommandChar(nullptr), _pStatusChar(nullptr), 
-    _onCommandReceived(nullptr), _deviceConnected(false), _pinCode(123456) {
+    _onCommandReceived(nullptr), _deviceConnected(false), _pinCode(0) {
 }
 
 void MaxFanBLE::begin(const char* deviceName) {
@@ -14,18 +14,7 @@ void MaxFanBLE::begin(const char* deviceName) {
     BLEDevice::init(deviceName);
 
     // 2. PIN laden
-    Preferences prefs;
-    prefs.begin("config", false); // Namespace passend zu ModeConfig
-    uint32_t storedPin = prefs.getInt("blepin", 0);
-    
-    if (storedPin == 0) {
-        // Falls noch nie gesetzt, generieren und speichern
-        _pinCode = (esp_random() % 900000) + 100000;
-        prefs.putInt("blepin", _pinCode);
-    } else {
-        _pinCode = storedPin;
-    }
-    prefs.end();
+    _pinCode = GlobalConfig.blePin;
     
     Serial.printf("BLE: Security PIN ist %d\n", _pinCode);
 

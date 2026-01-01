@@ -1,6 +1,6 @@
 #include <Arduino.h>
 #include <Wire.h>
-
+#include <Preferences.h>
 // --- Deine Bibliotheken ---
 #include <MaxRemote.h>
 #include <MaxReceiver.h>
@@ -8,6 +8,7 @@
 #include <MaxFanState.h>
 #include <MaxFanDisplay.h> // Deine alte Display Klasse (für Standard Mode)
 #include <MaxErrors.h>
+#include "MaxFanConfig.h"
 
 // --- Input & Grafik ---
 #include "Encoder.h"
@@ -31,6 +32,7 @@ MaxFanState maxFanState;
 MaxFanBLE fanBLE;
 MaxRemote fanRemote(2);
 MaxReceiver fanIrReceiver(3);
+
 
 // 2. Inputs
 ChordInput buttons({ENCODER_BUTTON, MODE_BUTTON, COVER_BUTTON});
@@ -71,7 +73,12 @@ void switchMode(AppMode* newMode) {
 
 void setup() {
   Serial.begin(115200);
-  delay(2000); 
+  delay(500); 
+
+  ConfigManager::load();
+
+  Serial.print("Booting Version: ");
+  Serial.println(APP_VERSION);
 
   // 1. Hardware Initialisierung
   // Wire Clock erst setzen, nachdem Displays ggf. initiiert wurden

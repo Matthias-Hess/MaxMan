@@ -1,41 +1,70 @@
-name: PlatformIO Build
+name: PlatformIO Release
 
-# Wann soll das passieren? (Hier: Bei jedem Push auf main)
 on:
   push:
-    branches: [ "main" ]
-  pull_request:
+    branches:
+      - main        # Baut bei jedem Push (Test)
+    tags:
+      - 'v*'        # Feuert NUR bei Tags wie v1.0, v0.2.3 etc.
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write  # WICHTIG: Erlaubt dem Bot, Releases zu erstellen
 
     steps:
     # 1. Code auschecken
+    # WICHTIG: fetch-depth: 0 holt alle Tags, damit das Python-Script die Version berechnen kann!
     - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
 
-    # 2. Python installieren (PlatformIO braucht Python)
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: '3.9'
 
-    # 3. PlatformIO installieren
+    # (Optional) Caching für PlatformIO Pakete - macht den Build viel schneller!
+    - name: Cache Pio
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.platformio
+          .pio
+        key: ${{ runner.os }}-pio-${{ hashFiles('**/platformio.ini') }}
+        restore-keys: |
+          ${{ runner.os }}-pio-
+
     - name: Install PlatformIO
       run: |
         python -m pip install --upgrade pip
         pip install platformio
 
-    # 4. Bibliotheken installieren (falls nötig, macht pio run oft automatisch)
-    # und Projekt bauen
+    # Dein angepasster Pfad
     - name: Run PlatformIO
       run: pio run -d software/src
 
-    # 5. Das Ergebnis (firmware.bin) sichern, damit du es runterladen kannst
-    - name: Upload Firmware Artifact
+    # Schritt 1: Artefakt für den manuellen Download (Debugging)
+    - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: firmware-esp32c3
-        # ACHTUNG: Pfad anpassen an deine platformio.ini Umgebung!
-        # Wenn deine env [env:seeed_xiao_esp32c3] heißt, dann so:
+        name: firmware-debug
         path: software/src/.pio/build/seeed_xiao_esp32c3/firmware.bin
+
+    # ZWISCHENSCHRITT: Datei umbenennen für das Release
+    # Wir hängen den Tag-Namen an den Dateinamen an (z.B. firmware_v1.0.0.bin)
+    - name: Rename Firmware for Release
+      if: startsWith(github.ref, 'refs/tags/')
+      run: |
+        cp software/src/.pio/build/seeed_xiao_esp32c3/firmware.bin firmware_${{ github.ref_name }}.bin
+
+    # Schritt 2: Release erstellen (NUR wenn es ein Tag ist)
+    - name: Release Firmware
+      uses: softprops/action-gh-release@v1
+      if: startsWith(github.ref, 'refs/tags/')
+      with:
+        # Wir laden jetzt die umbenannte Datei hoch
+        files: firmware_${{ github.ref_name }}.bin
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

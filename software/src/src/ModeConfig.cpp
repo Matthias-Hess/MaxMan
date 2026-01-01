@@ -1,45 +1,25 @@
 #include "ModeConfig.h"
-#include <Preferences.h>
-#include <BLEDevice.h>
 #include "esp_gap_ble_api.h"
-// --- HILFSFUNKTION: Manuelles Löschen aller Bonds ---
-// Da esp_ble_bond_dev_delete_all() auf dem C3 oft fehlt,
-// iterieren wir durch die Liste und löschen einzeln.
+
+// --- Hilfsfunktion clearBonds bleibt gleich ---
 void clearBonds() {
     int dev_num = esp_ble_get_bond_device_num();
-    if (dev_num == 0) {
-        Serial.println("BLE: Keine gespeicherten Bindungen gefunden.");
-        return;
-    }
-
-    Serial.printf("BLE: Lösche %d gespeicherte Bindungen...\n", dev_num);
-
-    // Speicher reservieren für die Liste der Geräte
+    if (dev_num == 0) return;
     esp_ble_bond_dev_t *dev_list = (esp_ble_bond_dev_t *)malloc(sizeof(esp_ble_bond_dev_t) * dev_num);
-    
     if (dev_list) {
         esp_ble_get_bond_device_list(&dev_num, dev_list);
         for (int i = 0; i < dev_num; i++) {
             esp_ble_remove_bond_device(dev_list[i].bd_addr);
         }
-        free(dev_list); // Speicher freigeben
-        Serial.println("BLE: Alle Bindungen gelöscht.");
-    } else {
-        Serial.println("BLE: Fehler bei Speicherreservierung (clearBonds).");
+        free(dev_list);
     }
 }
 // ----------------------------------------------------
 
-
 static bool _mustExit;
-Preferences prefs; 
+
 
 ModeConfig* ModeConfig::instance = nullptr;
-char ModeConfig::wifiPassword[GEM_STR_LEN] = "Start123";
-int ModeConfig::blePin = 0;
-int ModeConfig::connection = 0;
-
-int originalBlePin=0;
 
 SelectOptionInt optionsConnection[] = {
     {"None", 0},
@@ -47,122 +27,136 @@ SelectOptionInt optionsConnection[] = {
     {"WLAN", 2}
 };
 
-GEMSelect selectConnection(3, optionsConnection);
+SelectOptionInt optionsTimeout[] = {
+    {"Never", 0},
+    {"10s",  10},
+    {"20s", 20},
+    {"30s",  30},
+    {"1min",  60},
+    {"5min",  300}
+};
 
+GEMSelect selectConnection(3, optionsConnection);
+GEMSelect selectTimeout(6, optionsTimeout);
 
 ModeConfig::ModeConfig(U8G2* display, Encoder* encoder, ChordInput* input)
     : 
      AppMode(*display, *encoder, *input), 
     _menu(*display, GEM_POINTER_ROW, GEM_ITEMS_COUNT_AUTO),
+    _mustExit(false),
+    
+    // Hauptseite
     _pageMain("Main Menu"),
-    _itemExit("Exit Configuration", callbackExit),
+
+    // Die Exit-Seite (Titel des Untermenüs)
+    _pageExit("Exit Menu"), 
+
+    // Hauptmenü Items
+    _itemConnection("Connection", _editConfig.connection, selectConnection),
+    _itemPassword("WLAN PW:", _editConfig.wifiPassword),
     _itemGenerateNewPIN("Generate new PIN", callbackGenerateNewPIN),
-    _itemPassword("WLAN PW:", wifiPassword),
-    _itemConnection("Connection", connection, selectConnection),
-    _itemBlePin("PIN", blePin)
+    _itemBlePin("PIN", _editConfig.blePin),
+    _itemDisplayTimeoutSeconds("Display off after", _editConfig.displayTimeoutSeconds, selectTimeout),
+
+    // WICHTIG: Das Exit Item verweist jetzt auf die Page _pageExit, nicht mehr auf einen Callback!
+    _itemExit("Exit Configuration", callbackCheckExit),
+
+    // Die Items für das Exit Menü
+    _itemSave("Save Changes", callbackSaveAndRestart),
+    _itemDiscard("Discard Changes", callbackDiscardAndRestart),
+    _itemBack("Go Back", callbackGoBack)
 {
     instance = this;
-    
 
-    // --- WICHTIG: Menü-Struktur nur EINMAL im Konstruktor aufbauen ---
+    // --- 1. Aufbau des Hauptmenüs ---
     _pageMain.addMenuItem(_itemConnection);
     _pageMain.addMenuItem(_itemPassword);
     _pageMain.addMenuItem(_itemGenerateNewPIN);
     _pageMain.addMenuItem(_itemBlePin);
-    _pageMain.addMenuItem(_itemExit);
+    _pageMain.addMenuItem(_itemDisplayTimeoutSeconds);
+    _pageMain.addMenuItem(_itemExit); // Das öffnet jetzt das Untermenü
+    
     _itemPassword.setAdjustedASCIIOrder();
-    
 
-    load();
-    originalBlePin = blePin;
+    // --- 2. Aufbau des Exit-Untermenüs ---
+    _pageExit.addMenuItem(_itemSave);
+    _pageExit.addMenuItem(_itemDiscard);
+    _pageExit.addMenuItem(_itemBack);
 
     
-    // Seite registrieren (optional, aber gut für GEM Struktur)
+    
+    // Menü initialisieren
     _menu.setMenuPageCurrent(_pageMain);
 }
 
-
 void ModeConfig::enter() {
+    _editConfig = GlobalConfig; // Arbeits-KOPIE erstellen
     _mustExit = false;
-    _menu.setSplashDelay(0); // kein Splash Screen zeigen
+    _menu.setMenuPageCurrent(_pageMain);
+    _pageMain.setCurrentMenuItemIndex(0);
+    _menu.setSplashDelay(0);
     _menu.init();
     _menu.reInit();
     _menu.drawMenu();
 }
 
 ModeAction ModeConfig::loop() {
-
     bool actionDetected = false;
-    if(ModeConfig::blePin <100000){
-        ModeConfig::blePin +=100000;
-        _menu.drawMenu();
+
+    // Hack um PIN nur anzuzeigen/ändern
+    while(_editConfig.blePin < 100000){
+        _editConfig.blePin += 100000;
+        _menu.drawMenu(); // Redraw nötig, falls Wert geändert wurde
     }
         
-
     if(_mustExit) return ModeAction::SWITCH_TO_STANDARD;
 
-    if(connection==2 && _itemPassword.getHidden()){
+    // Logik zum Ein-/Ausblenden von Menüpunkten
+    if(_editConfig.connection==2 && _itemPassword.getHidden()){
         _itemPassword.show();
         actionDetected = true;
     }
-
-    if(connection!=2 && !_itemPassword.getHidden()){
+    if(_editConfig.connection!=2 && !_itemPassword.getHidden()){
         _itemPassword.hide();
         actionDetected = true;
-    }
-        
-    if(connection==1 && _itemGenerateNewPIN.getHidden()){
+    } 
+    if(_editConfig.connection==1 && _itemGenerateNewPIN.getHidden()){
         _itemGenerateNewPIN.show();
         actionDetected = true;
     }
-
-    if(connection!=1 && !_itemGenerateNewPIN.getHidden()){
+    if(_editConfig.connection!=1 && !_itemGenerateNewPIN.getHidden()){
         _itemGenerateNewPIN.hide();
         actionDetected = true;
     }
     
-     if (!_menu.readyForKey()) return ModeAction::NONE;
-
-    
-
-    // Encoder
-    int delta = _encoder.getDelta();
-    if (delta != 0) {
-        actionDetected = true;
-        if(_buttons.IsKeyDown(ENCODER_BUTTON)){
-             _buttons.CancelCurrentChord();
-             if (delta >0){
-                
-                _menu.registerKeyPress(GEM_KEY_LEFT);
-             }  else {
-                
-                _menu.registerKeyPress(GEM_KEY_RIGHT);
-             }
-        } else {
-            if (delta > 0) {
-                
-                _menu.registerKeyPress(GEM_KEY_DOWN);
+    // --- Input Handling ---
+    if (_menu.readyForKey()) {
+        int delta = _encoder.getDelta();
+        if (delta != 0) {
+            actionDetected = true;
+            if(_buttons.IsKeyDown(ENCODER_BUTTON)){
+                 _buttons.CancelCurrentChord();
+                 if (delta > 0) _menu.registerKeyPress(GEM_KEY_LEFT);
+                 else           _menu.registerKeyPress(GEM_KEY_RIGHT);
             } else {
-                
-                _menu.registerKeyPress(GEM_KEY_UP);
+                if (delta > 0) _menu.registerKeyPress(GEM_KEY_UP);
+                else           _menu.registerKeyPress(GEM_KEY_DOWN);
             }
         }
-    }
 
-    // Buttons
-    _buttons.tick();
-    if (_buttons.hasEvent()) {
-        KeyEvent evt = _buttons.popEvent();
-        
-        if (evt.IsSingle(ENCODER_BUTTON)) {
+        _buttons.tick();
+        if (_buttons.hasEvent()) {
+            KeyEvent evt = _buttons.popEvent();
             
-            _menu.registerKeyPress(GEM_KEY_OK);
-            actionDetected = true;
-        }
-        if (evt.IsSingle(MODE_BUTTON)) {
-            
-            _menu.registerKeyPress(GEM_KEY_CANCEL);
-            actionDetected = true;
+            if (evt.IsSingle(ENCODER_BUTTON)) {
+                _menu.registerKeyPress(GEM_KEY_OK);
+                actionDetected = true;
+            }
+            // Optional: MODE Button als "Zurück" Taste nutzen
+            if (evt.IsSingle(MODE_BUTTON)) {
+                _menu.registerKeyPress(GEM_KEY_CANCEL); // GEM geht automatisch eine Ebene zurück
+                actionDetected = true;
+            }
         }
     }
 
@@ -172,63 +166,54 @@ ModeAction ModeConfig::loop() {
     return ModeAction::NONE;
 }
 
-
-void ModeConfig::callbackExit() {
-    instance->_display.clearBuffer();
-    instance->_display.sendBuffer();
-    save();
-    ESP.restart();
-}
-void ModeConfig::callbackGenerateNewPIN() {
-    ModeConfig::blePin = (esp_random() % 900000) + 100000; // gespeichert wird später
-}
-void ModeConfig::callbackPassword(GEMCallbackData data) {
-    
-}
-
-void ModeConfig::save() {
-    prefs.begin("config", false); 
-
-    // 2. Werte schreiben
-    prefs.putInt("connection", ModeConfig::connection);
-    prefs.putInt("blepin", ModeConfig::blePin);
-    prefs.putString("wifiPassword", ModeConfig::wifiPassword);
-    // 3. Schließen
-    prefs.end();
-    
-    if(originalBlePin != blePin){
-       Serial.println("PIN wurde geändert. Starte Bonding-Löschung...");
-       
-       // Damit wir Bonds löschen können, muss der BLE Stack initialisiert sein.
-       // Wir starten ihn kurz "dummy", falls er nicht läuft.
-       BLEDevice::init("TEMP_CLEAR"); 
-       
-       // Manuelle Löschung aufrufen
-       clearBonds();
-       
-       // WICHTIG: Kurze Pause für Flash-Vorgänge
-       delay(500); 
-    }
-}
-
-void ModeConfig::load() {
-    prefs.begin("config", false); // true = ReadOnly (sicherer)
-
-    
-    ModeConfig::connection = prefs.getInt("connection", 0);
-    ModeConfig::blePin = prefs.getInt("blepin",0);
-
-    if(ModeConfig::blePin==0){
-        Serial.println("Kein BLE PIN vorhanden, ich mache einen...");
-        ModeConfig::blePin = (esp_random() % 900000) + 100000;
+// ------------------------------------------------
+// CALLBACKS
+// ------------------------------------------------
+void ModeConfig::callbackCheckExit() {
+    // A. Vergleich: Haben wir was verändert?
+    // Da wir den operator== im struct haben, ist das ein Einzeiler:
+    if (instance->_editConfig == GlobalConfig) {
         
-        // Speichern für den nächsten Start
-        prefs.putInt("blepin", ModeConfig::blePin);
+        // Fall 1: KEINE Änderungen
+        Serial.println("Config: Nichts geändert. Gehe direkt raus.");
+        instance->_mustExit = true; // Signalisiert dem loop(), dass wir fertig sind
+        
+    } else {
+        
+        // Fall 2: Änderungen erkannt
+        Serial.println("Config: Änderungen! Zeige Save/Discard Menü.");
+        
+        // Manuelle Navigation zur Unterseite!
+        instance->_menu.setMenuPageCurrent(instance->_pageExit);
+        instance->_menu.drawMenu();
     }
-
-    String tempPassword = prefs.getString("wifiPassword", "yourPassword");
-    strncpy(wifiPassword, tempPassword.c_str(), GEM_STR_LEN);
-    wifiPassword[GEM_STR_LEN - 1] = '\0';
-
-    prefs.end();
 }
+
+// 1. Speichern und Neustart
+void ModeConfig::callbackSaveAndRestart() {
+    instance->_display.clearBuffer();
+    instance->_display.drawStr(10, 30, "Saving...");
+    instance->_display.sendBuffer();
+    ConfigManager::saveAndReboot(instance->_editConfig);
+}
+
+// 2. Verwerfen und Neustart (Neustart ist am sichersten, um alte Werte zu laden)
+void ModeConfig::callbackDiscardAndRestart() {
+    instance->_mustExit = true;
+}
+
+// 3. Zurück zum Hauptmenü
+void ModeConfig::callbackGoBack() {
+    // GEM Methode um manuell die Seite zu wechseln
+    instance->_menu.setMenuPageCurrent(instance->_pageMain);
+    instance->_menu.drawMenu();
+}
+
+// --- Existierende Helper ---
+
+void ModeConfig::callbackGenerateNewPIN() {
+    instance->_editConfig.blePin = (esp_random() % 900000) + 100000;
+}
+
+
+

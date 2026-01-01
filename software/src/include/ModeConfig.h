@@ -7,6 +7,7 @@
 #include "Encoder.h"
 #include "ChordInput.h"
 #include "MaxFanConstants.h"
+#include "MaxFanConfig.h"
 
 // WICHTIG: Erbt von AppMode
 class ModeConfig : public AppMode {
@@ -18,9 +19,7 @@ public:
 
 
 private:
-    static char wifiPassword[GEM_STR_LEN];
-    static int connection; // 0 = None, 1 = BLE, 2 = WLAN
-    static int blePin;
+    bool _mustExit;
     GEM_u8g2 _menu;
     GEMPage _pageMain;
     GEMItem _itemExit;
@@ -28,7 +27,22 @@ private:
     GEMItem _itemPassword; 
     GEMItem _itemConnection;
     GEMItem _itemBlePin;
+    GEMItem _itemDisplayTimeoutSeconds;
+    // 1. Die neue Unter-Seite
+    GEMPage _pageExit; 
 
+    // 2. Die Items für das Exit-Menü
+    GEMItem _itemSave;
+    GEMItem _itemDiscard;
+    GEMItem _itemBack;
+
+    ConfigData _editConfig;
+
+    // 3. Statische Callbacks für die neuen Funktionen
+    static void callbackSaveAndRestart();
+    static void callbackDiscardAndRestart();
+    static void callbackGoBack(); // Um manuell zurückzuspringen
+    static void callbackCheckExit(); 
     static void callbackExit();
     static void callbackGenerateNewPIN();
     static void save();
