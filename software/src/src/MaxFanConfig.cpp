@@ -45,6 +45,10 @@ void ConfigManager::load() {
     strncpy(GlobalConfig.wifiPassword, pwd.c_str(), 64);
     GlobalConfig.wifiPassword[63] = '\0'; // Safety
 
+    String wifiSSID = prefs.getString("wifiSSID", "");
+    strncpy(GlobalConfig.wifiSSID, wifiSSID.c_str(), 64);
+    GlobalConfig.wifiSSID[63] = '\0'; // Safety
+
     prefs.end();
     Serial.println("ConfigManager: Config geladen.");
 }
@@ -57,8 +61,9 @@ void ConfigManager::saveAndReboot(const ConfigData& newData) {
     
     prefs.putInt("connection", newData.connection);
     prefs.putInt("blepin", newData.blePin);
-    prefs.putString("wifiPassword", newData.wifiPassword);
     prefs.putInt("displayTimeoutS", newData.displayTimeoutSeconds);
+    prefs.putString("wifiPassword", newData.wifiPassword);
+    prefs.putString("wifiSSID", newData.wifiSSID);
     prefs.end();
 
     // Der intelligente Check: Wurde der PIN geändert?

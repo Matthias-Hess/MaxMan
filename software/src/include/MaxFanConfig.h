@@ -9,13 +9,14 @@ struct ConfigData {
     int blePin;
     char wifiPassword[64];
     int displayTimeoutSeconds;  
-    char wifiSID[64];
+    char wifiSSID[64];
 
     bool operator==(const ConfigData& other) const {
         return (connection == other.connection) &&
                (blePin == other.blePin) &&
                (strncmp(wifiPassword, other.wifiPassword, 64) == 0) &&
-               (displayTimeoutSeconds == other.displayTimeoutSeconds);
+               (displayTimeoutSeconds == other.displayTimeoutSeconds) &&
+               (strncmp(wifiSSID, other.wifiSSID, 64) == 0);
     }
     
     bool operator!=(const ConfigData& other) const {

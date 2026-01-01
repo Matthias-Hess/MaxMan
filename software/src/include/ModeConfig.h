@@ -3,13 +3,20 @@
 
 #include <U8g2lib.h>
 #include <GEM_u8g2.h>
-#include "AppMode.h"          // WICHTIG: Basisklasse
+#include "AppMode.h"
 #include "Encoder.h"
 #include "ChordInput.h"
 #include "MaxFanConstants.h"
 #include "MaxFanConfig.h"
+#include <vector> 
+#include <esp_heap_caps.h> // Für Heap Checks
 
-// WICHTIG: Erbt von AppMode
+struct ReleaseEntry {
+    String tagName;
+    String downloadUrl;
+    GEMItem* menuPtr; 
+};
+
 class ModeConfig : public AppMode {
 public:
     ModeConfig(U8G2* display, Encoder* encoder, ChordInput* input);
@@ -17,39 +24,75 @@ public:
     void enter() override;
     ModeAction loop() override;
 
-
 private:
+    static ModeConfig* instance;
+
     bool _mustExit;
     GEM_u8g2 _menu;
-    GEMPage _pageMain;
-    GEMItem _itemExit;
-    GEMItem _itemGenerateNewPIN;
-    GEMItem _itemPassword; 
-    GEMItem _itemConnection;
-    GEMItem _itemBlePin;
-    GEMItem _itemDisplayTimeoutSeconds;
-    // 1. Die neue Unter-Seite
-    GEMPage _pageExit; 
+    ConfigData _editConfig; 
 
-    // 2. Die Items für das Exit-Menü
+    // --- SEITEN (PAGES) ---
+    GEMPage _pageMain;          
+    GEMPage _pageRemote;        
+    GEMPage _pageWifi;          
+    GEMPage _pageBle;           
+    GEMPage _pageDisplay;       
+    GEMPage _pageVersionInfo;   
+    GEMPage _pageExit;          
+
+    // WICHTIG: Das hier ist jetzt ein Pointer (*), damit wir die Seite neu bauen können!
+    GEMPage* _pageVersionsSelect; 
+
+    // --- NAVIGATION ITEMS ---
+    GEMItem _itemNavRemote;
+    GEMItem _itemNavWifi;
+    GEMItem _itemNavBle;
+    GEMItem _itemNavDisplay;
+    GEMItem _itemNavVersion;
+    GEMItem _itemNavExit;       
+
+    // --- BACK BUTTONS ---
+    GEMItem _itemBackRemote;
+    GEMItem _itemBackWifi;
+    GEMItem _itemBackBle;
+    GEMItem _itemBackDisplay;
+    GEMItem _itemBackVersion;
+    GEMItem _itemBackFromExit;  
+
+    // --- PAGE ITEMS ---
+    GEMItem _itemConnection;    
+    GEMItem _itemSsid;
+    GEMItem _itemPassword;
+    GEMItem _itemTestWifi;      
+    GEMItem _itemBlePin;
+    GEMItem _itemGenerateNewPIN;
+    GEMItem _itemDisplayTimeoutSeconds;
+    GEMItem _itemCurrentVersion; 
+    GEMItem _itemCheckUpdates;   
     GEMItem _itemSave;
     GEMItem _itemDiscard;
-    GEMItem _itemBack;
 
-    ConfigData _editConfig;
+    // --- INTERNE LOGIK ---
+    char versionLabel[32]; 
+    std::vector<ReleaseEntry> _releaseList; 
 
-    // 3. Statische Callbacks für die neuen Funktionen
+    void clearDynamicItems();
+    bool connectToWiFi(bool useEditConfig); 
+    void fetchReleasesFromGitHub();
+    void showError(const char* line1, const char* line2 = ""); // Error Helper
+    static void performOTA(const char* url);
+
+    // --- CALLBACKS ---
+    static void callbackCheckExit(); 
     static void callbackSaveAndRestart();
     static void callbackDiscardAndRestart();
-    static void callbackGoBack(); // Um manuell zurückzuspringen
-    static void callbackCheckExit(); 
-    static void callbackExit();
+    static void callbackGoBackToMain();     
+    static void callbackGoBackToVersion();  
     static void callbackGenerateNewPIN();
-    static void save();
-    static void load();
-    static ModeConfig* instance;
-    static void callbackPassword(GEMCallbackData data);
-
+    static void callbackTestWifi(); 
+    
+    static void callbackCheckForUpdates();
+    static void callbackInstallUpdate(GEMCallbackData data);
 };
 
 #endif

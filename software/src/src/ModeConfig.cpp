@@ -1,23 +1,13 @@
 #include "ModeConfig.h"
-#include "esp_gap_ble_api.h"
+#include <WiFi.h>
+#include <HTTPClient.h>
+#include <WiFiClientSecure.h>
+#include <HTTPUpdate.h>
+#include <ArduinoJson.h>
 
-// --- Hilfsfunktion clearBonds bleibt gleich ---
-void clearBonds() {
-    int dev_num = esp_ble_get_bond_device_num();
-    if (dev_num == 0) return;
-    esp_ble_bond_dev_t *dev_list = (esp_ble_bond_dev_t *)malloc(sizeof(esp_ble_bond_dev_t) * dev_num);
-    if (dev_list) {
-        esp_ble_get_bond_device_list(&dev_num, dev_list);
-        for (int i = 0; i < dev_num; i++) {
-            esp_ble_remove_bond_device(dev_list[i].bd_addr);
-        }
-        free(dev_list);
-    }
-}
-// ----------------------------------------------------
-
-static bool _mustExit;
-
+#ifndef APP_VERSION
+#define APP_VERSION "v0.0.0-dev"
+#endif
 
 ModeConfig* ModeConfig::instance = nullptr;
 
@@ -30,70 +20,126 @@ SelectOptionInt optionsConnection[] = {
 SelectOptionInt optionsTimeout[] = {
     {"Never", 0},
     {"10s",  10},
-    {"20s", 20},
+    {"20s",  20},
     {"30s",  30},
-    {"1min",  60},
-    {"5min",  300}
+    {"1min", 60},
+    {"5min", 300}
 };
 
 GEMSelect selectConnection(3, optionsConnection);
 GEMSelect selectTimeout(6, optionsTimeout);
 
+// -----------------------------------------------------------
+// KONSTRUKTOR
+// -----------------------------------------------------------
 ModeConfig::ModeConfig(U8G2* display, Encoder* encoder, ChordInput* input)
     : 
      AppMode(*display, *encoder, *input), 
     _menu(*display, GEM_POINTER_ROW, GEM_ITEMS_COUNT_AUTO),
     _mustExit(false),
     
-    // Hauptseite
-    _pageMain("Main Menu"),
+    // --- SEITEN (Statisch) ---
+    _pageMain("Settings"),
+    _pageRemote("Remote Access"),
+    _pageWifi("Wi-Fi Settings"),
+    _pageBle("Bluetooth LE"),
+    _pageDisplay("Display"),
+    _pageVersionInfo("Firmware Version"),
+    _pageExit("Save Changes?"), 
+    // _pageVersionsSelect wird im Body initialisiert!
 
-    // Die Exit-Seite (Titel des Untermenüs)
-    _pageExit("Exit Menu"), 
+    // --- NAVIGATION ITEMS ---
+    _itemNavWifi("Wi-Fi", _pageWifi),
+    _itemNavBle("Bluetooth LE", _pageBle),
+    _itemNavRemote("Remote Access", _pageRemote),
+    _itemNavDisplay("Display", _pageDisplay),
+    _itemNavVersion("Version", _pageVersionInfo),
+    _itemNavExit("Exit", callbackCheckExit),
 
-    // Hauptmenü Items
+    // --- BACK BUTTONS ---
+    _itemBackRemote("Back", callbackGoBackToMain),
+    _itemBackWifi("Back", callbackGoBackToMain),
+    _itemBackBle("Back", callbackGoBackToMain),
+    _itemBackDisplay("Back", callbackGoBackToMain),
+    _itemBackVersion("Back", callbackGoBackToMain),
+    _itemBackFromExit("Back", callbackGoBackToMain),
+
+    // --- ITEMS ---
     _itemConnection("Connection", _editConfig.connection, selectConnection),
-    _itemPassword("WLAN PW:", _editConfig.wifiPassword),
+    _itemSsid("SSID:", _editConfig.wifiSSID),
+    _itemPassword("Password:", _editConfig.wifiPassword),
+    _itemTestWifi("Test Connection", callbackTestWifi),
+    _itemBlePin("PIN:", _editConfig.blePin),
     _itemGenerateNewPIN("Generate new PIN", callbackGenerateNewPIN),
-    _itemBlePin("PIN", _editConfig.blePin),
-    _itemDisplayTimeoutSeconds("Display off after", _editConfig.displayTimeoutSeconds, selectTimeout),
-
-    // WICHTIG: Das Exit Item verweist jetzt auf die Page _pageExit, nicht mehr auf einen Callback!
-    _itemExit("Exit Configuration", callbackCheckExit),
-
-    // Die Items für das Exit Menü
+    _itemDisplayTimeoutSeconds("Dim after", _editConfig.displayTimeoutSeconds, selectTimeout),
+    _itemCurrentVersion("Installed:", APP_VERSION, true), 
+    _itemCheckUpdates("Check for Updates", callbackCheckForUpdates),
     _itemSave("Save Changes", callbackSaveAndRestart),
-    _itemDiscard("Discard Changes", callbackDiscardAndRestart),
-    _itemBack("Go Back", callbackGoBack)
+    _itemDiscard("Discard Changes", callbackDiscardAndRestart)
 {
     instance = this;
+    snprintf(versionLabel, sizeof(versionLabel), "v%s", APP_VERSION);
 
-    // --- 1. Aufbau des Hauptmenüs ---
-    _pageMain.addMenuItem(_itemConnection);
-    _pageMain.addMenuItem(_itemPassword);
-    _pageMain.addMenuItem(_itemGenerateNewPIN);
-    _pageMain.addMenuItem(_itemBlePin);
-    _pageMain.addMenuItem(_itemDisplayTimeoutSeconds);
-    _pageMain.addMenuItem(_itemExit); // Das öffnet jetzt das Untermenü
-    
-    _itemPassword.setAdjustedASCIIOrder();
+    // WICHTIG: Dynamische Page initialisieren
+    _pageVersionsSelect = new GEMPage("Select Version");
 
-    // --- 2. Aufbau des Exit-Untermenüs ---
+    // =========================================================
+    // MENU STRUKTUR AUFBAUEN
+    // =========================================================
+
+    // 1. Main Page
+    _pageMain.addMenuItem(_itemNavWifi);
+    _pageMain.addMenuItem(_itemNavBle);
+    _pageMain.addMenuItem(_itemNavRemote);
+    _pageMain.addMenuItem(_itemNavDisplay);
+    _pageMain.addMenuItem(_itemNavVersion);
+    _pageMain.addMenuItem(_itemNavExit);
+
+    // 2. Remote Access Page
+    _pageRemote.addMenuItem(_itemConnection);
+    _pageRemote.addMenuItem(_itemBackRemote); 
+
+    // 3. Wi-Fi Page
+    _pageWifi.addMenuItem(_itemSsid);
+    _pageWifi.addMenuItem(_itemPassword);
+    _pageWifi.addMenuItem(_itemTestWifi);
+    _pageWifi.addMenuItem(_itemBackWifi);     
+
+    // 4. BLE Page
+    _pageBle.addMenuItem(_itemBlePin);
+    _pageBle.addMenuItem(_itemGenerateNewPIN);
+    _pageBle.addMenuItem(_itemBackBle);       
+
+    // 5. Display Page
+    _pageDisplay.addMenuItem(_itemDisplayTimeoutSeconds);
+    _pageDisplay.addMenuItem(_itemBackDisplay); 
+
+    // 6. Version Page
+    _pageVersionInfo.addMenuItem(_itemCurrentVersion);
+    _pageVersionInfo.addMenuItem(_itemCheckUpdates);
+    _pageVersionInfo.addMenuItem(_itemBackVersion); 
+
+    // 7. Exit Page
     _pageExit.addMenuItem(_itemSave);
     _pageExit.addMenuItem(_itemDiscard);
-    _pageExit.addMenuItem(_itemBack);
+    _pageExit.addMenuItem(_itemBackFromExit); 
 
-    
-    
-    // Menü initialisieren
+    _itemPassword.setAdjustedASCIIOrder();
+    _itemSsid.setAdjustedASCIIOrder();
+
     _menu.setMenuPageCurrent(_pageMain);
 }
 
+// -----------------------------------------------------------
+// LIFECYCLE
+// -----------------------------------------------------------
 void ModeConfig::enter() {
-    _editConfig = GlobalConfig; // Arbeits-KOPIE erstellen
+    _editConfig = GlobalConfig; 
     _mustExit = false;
+    
     _menu.setMenuPageCurrent(_pageMain);
     _pageMain.setCurrentMenuItemIndex(0);
+    
     _menu.setSplashDelay(0);
     _menu.init();
     _menu.reInit();
@@ -103,33 +149,13 @@ void ModeConfig::enter() {
 ModeAction ModeConfig::loop() {
     bool actionDetected = false;
 
-    // Hack um PIN nur anzuzeigen/ändern
     while(_editConfig.blePin < 100000){
         _editConfig.blePin += 100000;
-        _menu.drawMenu(); // Redraw nötig, falls Wert geändert wurde
+        _menu.drawMenu(); 
     }
         
     if(_mustExit) return ModeAction::SWITCH_TO_STANDARD;
 
-    // Logik zum Ein-/Ausblenden von Menüpunkten
-    if(_editConfig.connection==2 && _itemPassword.getHidden()){
-        _itemPassword.show();
-        actionDetected = true;
-    }
-    if(_editConfig.connection!=2 && !_itemPassword.getHidden()){
-        _itemPassword.hide();
-        actionDetected = true;
-    } 
-    if(_editConfig.connection==1 && _itemGenerateNewPIN.getHidden()){
-        _itemGenerateNewPIN.show();
-        actionDetected = true;
-    }
-    if(_editConfig.connection!=1 && !_itemGenerateNewPIN.getHidden()){
-        _itemGenerateNewPIN.hide();
-        actionDetected = true;
-    }
-    
-    // --- Input Handling ---
     if (_menu.readyForKey()) {
         int delta = _encoder.getDelta();
         if (delta != 0) {
@@ -152,9 +178,8 @@ ModeAction ModeConfig::loop() {
                 _menu.registerKeyPress(GEM_KEY_OK);
                 actionDetected = true;
             }
-            // Optional: MODE Button als "Zurück" Taste nutzen
             if (evt.IsSingle(MODE_BUTTON)) {
-                _menu.registerKeyPress(GEM_KEY_CANCEL); // GEM geht automatisch eine Ebene zurück
+                _menu.registerKeyPress(GEM_KEY_CANCEL); 
                 actionDetected = true;
             }
         }
@@ -167,29 +192,38 @@ ModeAction ModeConfig::loop() {
 }
 
 // ------------------------------------------------
-// CALLBACKS
+// ERROR HELPER
 // ------------------------------------------------
+void ModeConfig::showError(const char* line1, const char* line2) {
+    Serial.printf("[ERROR] %s %s\n", line1, line2);
+    
+    instance->_display.clearBuffer();
+    instance->_display.setFont(u8g2_font_helvB08_tf);
+    instance->_display.drawStr(0, 20, "Error:");
+    instance->_display.drawStr(0, 35, line1);
+    instance->_display.drawStr(0, 50, line2);
+    instance->_display.sendBuffer();
+    
+    delay(3000); 
+    
+    // Zurück zur Version Info Seite
+    instance->_menu.setMenuPageCurrent(instance->_pageVersionInfo);
+    instance->_menu.drawMenu();
+}
+
+// ------------------------------------------------
+// NAVIGATION & SYSTEM CALLBACKS
+// ------------------------------------------------
+
 void ModeConfig::callbackCheckExit() {
-    // A. Vergleich: Haben wir was verändert?
-    // Da wir den operator== im struct haben, ist das ein Einzeiler:
     if (instance->_editConfig == GlobalConfig) {
-        
-        // Fall 1: KEINE Änderungen
-        Serial.println("Config: Nichts geändert. Gehe direkt raus.");
-        instance->_mustExit = true; // Signalisiert dem loop(), dass wir fertig sind
-        
+        instance->_mustExit = true; 
     } else {
-        
-        // Fall 2: Änderungen erkannt
-        Serial.println("Config: Änderungen! Zeige Save/Discard Menü.");
-        
-        // Manuelle Navigation zur Unterseite!
         instance->_menu.setMenuPageCurrent(instance->_pageExit);
         instance->_menu.drawMenu();
     }
 }
 
-// 1. Speichern und Neustart
 void ModeConfig::callbackSaveAndRestart() {
     instance->_display.clearBuffer();
     instance->_display.drawStr(10, 30, "Saving...");
@@ -197,23 +231,241 @@ void ModeConfig::callbackSaveAndRestart() {
     ConfigManager::saveAndReboot(instance->_editConfig);
 }
 
-// 2. Verwerfen und Neustart (Neustart ist am sichersten, um alte Werte zu laden)
 void ModeConfig::callbackDiscardAndRestart() {
-    instance->_mustExit = true;
+    instance->_mustExit = true; 
 }
 
-// 3. Zurück zum Hauptmenü
-void ModeConfig::callbackGoBack() {
-    // GEM Methode um manuell die Seite zu wechseln
+void ModeConfig::callbackGoBackToMain() {
     instance->_menu.setMenuPageCurrent(instance->_pageMain);
     instance->_menu.drawMenu();
 }
 
-// --- Existierende Helper ---
+void ModeConfig::callbackGoBackToVersion() {
+    instance->_menu.setMenuPageCurrent(instance->_pageVersionInfo);
+    instance->_menu.drawMenu();
+}
 
 void ModeConfig::callbackGenerateNewPIN() {
     instance->_editConfig.blePin = (esp_random() % 900000) + 100000;
 }
 
+// ------------------------------------------------
+// WI-FI TEST
+// ------------------------------------------------
 
+void ModeConfig::callbackTestWifi() {
+    instance->_display.clearBuffer();
+    instance->_display.drawStr(0, 20, "Testing Connection...");
+    instance->_display.sendBuffer();
 
+    WiFi.disconnect();
+    delay(500);
+
+    bool success = instance->connectToWiFi(true);
+
+    instance->_display.clearBuffer();
+    if (success) {
+        instance->_display.drawStr(0, 30, "Connection");
+        instance->_display.drawStr(0, 50, "Successful!");
+    } else {
+        instance->_display.drawStr(0, 30, "Connection");
+        instance->_display.drawStr(0, 50, "Failed!");
+    }
+    instance->_display.sendBuffer();
+    delay(2000);
+    instance->_menu.drawMenu();
+}
+
+// ------------------------------------------------
+// OTA / UPDATE LOGIK
+// ------------------------------------------------
+
+void ModeConfig::clearDynamicItems() {
+    for (auto& entry : _releaseList) {
+        delete entry.menuPtr; 
+    }
+    _releaseList.clear();
+}
+
+bool ModeConfig::connectToWiFi(bool useEditConfig) {
+    if (WiFi.status() == WL_CONNECTED) return true;
+
+    WiFi.begin(instance->_editConfig.wifiSSID, instance->_editConfig.wifiPassword); 
+    
+    int timeout = 0;
+    while (WiFi.status() != WL_CONNECTED && timeout < 20) { 
+        delay(500);
+        timeout++;
+    }
+    return WiFi.status() == WL_CONNECTED;
+}
+
+void ModeConfig::callbackCheckForUpdates() {
+    if (!instance->connectToWiFi(true)) { 
+        instance->showError("WiFi Failed", "Check Settings");
+        return;
+    }
+
+    instance->_display.clearBuffer();
+    instance->_display.drawStr(10, 30, "Fetching GitHub...");
+    instance->_display.sendBuffer();
+
+    instance->fetchReleasesFromGitHub();
+}
+
+void ModeConfig::fetchReleasesFromGitHub() {
+    Serial.println("--- Starting GitHub Fetch ---");
+    Serial.printf("Free Heap: %d bytes\n", ESP.getFreeHeap());
+
+    WiFiClientSecure client;
+    client.setInsecure(); 
+    HTTPClient http;
+    
+    String url = "https://api.github.com/repos/Matthias-Hess/MaxMan/releases"; 
+    
+    http.setTimeout(10000); 
+
+    if (!http.begin(client, url)) {
+        showError("HTTP Begin", "Failed");
+        return;
+    }
+
+    http.addHeader("User-Agent", "ESP32-MaxMan"); 
+    http.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
+
+    int httpCode = http.GET();
+
+    if (httpCode == HTTP_CODE_OK) {
+        int len = http.getSize();
+        if (len > 25000) {
+                showError("JSON too big", String(len).c_str());
+                http.end();
+                return;
+        }
+
+        String payload = http.getString();
+        
+        StaticJsonDocument<200> filter;
+        filter[0]["tag_name"] = true;
+        filter[0]["assets"][0]["name"] = true;
+        filter[0]["assets"][0]["browser_download_url"] = true;
+        
+        DynamicJsonDocument doc(20480); 
+        DeserializationError error = deserializeJson(doc, payload, DeserializationOption::Filter(filter));
+
+        if (!error) {
+            // 1. Alles Alte löschen
+            instance->clearDynamicItems(); 
+            
+            // 2. Seite neu bauen
+            delete instance->_pageVersionsSelect; 
+            instance->_pageVersionsSelect = new GEMPage("Select Version");
+
+            JsonArray arr = doc.as<JsonArray>();
+            int count = 0;
+
+            for (JsonObject repo : arr) {
+                const char* tagName = repo["tag_name"];
+                if (!tagName) continue;
+
+                String label = String(tagName);
+                
+                if (label == String(APP_VERSION)) {
+                    label += " (curr)";
+                }
+
+                String binUrl = "";
+                JsonArray assets = repo["assets"];
+                for (JsonObject asset : assets) {
+                    const char* name = asset["name"];
+                    const char* dlUrl = asset["browser_download_url"];
+                    if (name && String(name).endsWith(".bin")) {
+                        binUrl = String(dlUrl);
+                        break; 
+                    }
+                }
+
+                if (binUrl != "") {
+                    char* labelCStr = strdup(label.c_str());
+                    GEMItem* newItem = new GEMItem(labelCStr, callbackInstallUpdate);
+                    
+                    ReleaseEntry entry;
+                    entry.tagName = label;
+                    entry.downloadUrl = binUrl;
+                    entry.menuPtr = newItem;
+                    
+                    instance->_releaseList.push_back(entry);
+                    instance->_pageVersionsSelect->addMenuItem(*newItem);
+                    count++;
+                }
+            }
+
+            if (count == 0) {
+                showError("No .bin files", "found");
+            } else {
+                // --- KORREKTUR HIER ---
+                // Den Back-Button auch dynamisch erstellen!
+                GEMItem* itemBack = new GEMItem("Back", callbackGoBackToVersion);
+                
+                // Zur Seite hinzufügen
+                instance->_pageVersionsSelect->addMenuItem(*itemBack);
+                
+                // WICHTIG: Zur Aufräum-Liste hinzufügen, damit er beim nächsten Mal gelöscht wird
+                ReleaseEntry entryBack;
+                entryBack.tagName = "BackBtn"; // Dummy Name
+                entryBack.menuPtr = itemBack;
+                instance->_releaseList.push_back(entryBack);
+                // ----------------------
+
+                instance->_menu.setMenuPageCurrent(*instance->_pageVersionsSelect);
+                instance->_menu.drawMenu();
+            }
+
+        } else {
+            showError("JSON Error:", error.c_str());
+        }
+    } else {
+        showError("HTTP Error", String(httpCode).c_str());
+    }
+    http.end();
+}
+
+void ModeConfig::callbackInstallUpdate(GEMCallbackData data) {
+    for (const auto& entry : instance->_releaseList) {
+        if (entry.menuPtr == data.pMenuItem) {
+            performOTA(entry.downloadUrl.c_str());
+            return;
+        }
+    }
+}
+
+void ModeConfig::performOTA(const char* url) {
+    instance->_display.clearBuffer();
+    instance->_display.setFont(u8g2_font_helvB10_tf);
+    instance->_display.drawStr(0, 20, "Updating...");
+    instance->_display.drawStr(0, 40, "Do not power off!");
+    instance->_display.sendBuffer();
+
+    WiFiClientSecure client;
+    client.setInsecure(); 
+    httpUpdate.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
+
+    t_httpUpdate_return ret = httpUpdate.update(client, url);
+
+    instance->_display.clearBuffer();
+    switch (ret) {
+        case HTTP_UPDATE_FAILED:
+            instance->_display.drawStr(0, 30, "Update Failed!");
+            Serial.printf("Error (%d): %s\n", httpUpdate.getLastError(), httpUpdate.getLastErrorString().c_str());
+            break;
+        case HTTP_UPDATE_NO_UPDATES:
+            instance->_display.drawStr(0, 30, "No Update?");
+            break;
+        case HTTP_UPDATE_OK:
+            instance->_display.drawStr(0, 30, "Success!"); 
+            break;
+    }
+    instance->_display.sendBuffer();
+    delay(3000);
+    instance->_menu.drawMenu();
+}
