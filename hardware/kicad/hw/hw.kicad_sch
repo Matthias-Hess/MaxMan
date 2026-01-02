@@ -2304,7 +2304,7 @@
 			(embedded_fonts no)
 		)
 	)
-	(text "Bisherige Verbesserungsvorschläge:\n\n1. Den IR Empfänger um 180 Grad drehen\n2. Alle Buttons sollten Active LOW sein, ->OK\njetzt sind sie active High. Das ist suboptimal, weil SW4 am GOPIO9 (STAPPING PIN)\n hängt. Der hat einen Pullup und deshalb wird er nie LOW\n3. Die Beschriftungen im Layout der GPIOs ist falsch\n4. 12V->5V DCDC-Converter integrieren, sicherung\n4. Dem IR Receiver fehlt der Widerstand und der Kondensator\n5. IR LED ev als SMD wählen, z.B. VSMY2940RGX01 https://www.vishay.com/docs/84583/vsmy2940rgx01.pdf\n6. Verpolungsschutz (Diode)\n7. Die Löscher zur Positionierung des Rotary Encoders könnten etwas kleiner gewählt werden."
+	(text "Bisherige Verbesserungsvorschläge:\n\n1. Den IR Empfänger um 180 Grad drehen\n2. Alle Buttons sollten Active LOW sein, ->OK\njetzt sind sie active High. Das ist suboptimal, weil SW4 am GOPIO9 (STAPPING PIN)\n hängt. Der hat einen Pullup und deshalb wird er nie LOW\n3. Die Beschriftungen im Layout der GPIOs ist falsch\n\n4. 12V->5V DCDC-Converter integrieren, sicherung\n4. Dem IR Receiver fehlt der Widerstand und der Kondensator\n5. IR LED ev als SMD wählen, z.B. VSMY2940RGX01 https://www.vishay.com/docs/84583/vsmy2940rgx01.pdf\n6. Verpolungsschutz (Diode)\n7. Die Löscher zur Positionierung des Rotary Encoders könnten etwas kleiner gewählt werden.\n\nDer Vorwiderstand der IR LED soll nicht unter dem Display liegen"
 		(exclude_from_sim no)
 		(at 127 129.54 0)
 		(effects

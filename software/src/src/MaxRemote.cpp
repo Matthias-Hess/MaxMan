@@ -4,7 +4,7 @@
 using namespace MaxFan;
 #include <vector>
 
-const uint16_t TICK = 400; 
+const uint16_t TICK = 833; 
 const uint16_t FREQ = 38000; // 38kHz
 
 MaxRemote::MaxRemote(uint8_t irPin) : irsend(irPin) {
@@ -95,14 +95,14 @@ void MaxRemote::send(MaxFanState& state) {
   irsend.sendRaw(durations.data(), durations.size(), FREQ / 1000);
   unsigned long end = millis();
 
-  //Serial.print("\nsending durations: ");
-  //for (int i=0; i<durations.size();i++) {
-  //    Serial.print(durations.at(i));
-  //    Serial.print(" ");
-  //}
-  //Serial.print("\nsent in ");
-  //Serial.print(end-start);
-  //Serial.println();
+  Serial.print("\nsending durations: ");
+  for (int i=0; i<durations.size();i++) {
+      Serial.print(durations.at(i));
+      Serial.print(" ");
+  }
+  Serial.print("\nsent in ");
+  Serial.print(end-start);
+  Serial.println();
 
   Serial.println(lastSentState.ToJson());
 }
