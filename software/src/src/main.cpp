@@ -127,7 +127,11 @@ void setup() {
   modeScreenDark = new ModeScreenDark(
       u8g2,
       encoder,
-      buttons
+      buttons,
+      maxFanState,
+      fanRemote,
+      fanIrReceiver,
+      fanBLE
   );
 
   // 3. Start-Modus setzen

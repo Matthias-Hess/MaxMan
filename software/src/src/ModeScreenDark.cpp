@@ -1,8 +1,11 @@
 #include "ModeScreenDark.h"
 #include <U8g2lib.h>
 
-ModeScreenDark::ModeScreenDark(U8G2& u8g2, Encoder& enc, ChordInput& btns)
-    : AppMode(u8g2, enc, btns)
+ModeScreenDark::ModeScreenDark(U8G2& u8g2, Encoder& enc, ChordInput& btns,
+                               MaxFanState& state, MaxRemote& remote, 
+                               MaxReceiver& irReceiver, MaxFanBLE& ble)
+    : AppMode(u8g2, enc, btns),
+      _state(state), _remote(remote), _irReceiver(irReceiver), _ble(ble)
 {
 }
 
@@ -18,6 +21,15 @@ void ModeScreenDark::enter() {
 }
 
 ModeAction ModeScreenDark::loop() {
+    bool isConnected = _ble.isConnected();
+  
+    if(isConnected){
+        _ble.notifyStatus(_state);
+    }
+
+    _remote.send(_state);
+    _irReceiver.update(_state);
+
     // Check for any encoder movement
     int delta = _encoder.getDelta();
     if (delta != 0) {

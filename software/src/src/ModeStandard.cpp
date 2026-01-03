@@ -13,15 +13,6 @@ ModeAction ModeStandard::loop() {
     
     bool isConnected = _ble.isConnected();
   
-    if (isConnected && !_wasConnected) {
-        Serial.println("BLE client connected");
-        _wasConnected = true;
-    } else if (!isConnected && _wasConnected) {
-        Serial.println("BLE client disconnected");
-        _wasConnected = false;
-        BLEDevice::startAdvertising(); 
-    }
-
     if(isConnected){
         _ble.notifyStatus(_state);
     }
