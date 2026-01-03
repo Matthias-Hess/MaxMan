@@ -52,6 +52,9 @@ public:
     // Das nächste Event holen
     KeyEvent popEvent();
 
+    // Gibt die Zeit des letzten erkannten Inputs zurück (in Mikrosekunden seit Boot)
+    int64_t getLastInputTime() const;
+
 private:
     std::vector<int> _pins;           // Speichert die Pin-IDs
     std::queue<KeyEvent> _eventQueue; // Warteschlange
@@ -59,6 +62,7 @@ private:
     bool _isRecording;                // Status-Flag
     bool _currentChordIsCancelled;    // true, wenn der aktuell recordete Chrod gecancelled wurde
     long lastButtonCheck =0;          // millis des letzten Checks
+    int64_t _lastInputTime = 0;       // Zeitstempel des letzten Inputs (esp_timer_get_time())
     // Hilfsmethode zum Hardware-Lesen
     uint16_t readHardware();
 };

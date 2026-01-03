@@ -1,4 +1,7 @@
 #include "ModeStandard.h"
+#include "MaxFanConfig.h"
+#include "MaxFanConstants.h"
+#include <esp_timer.h>
 
 void ModeStandard::enter() {
     
@@ -74,6 +77,26 @@ ModeAction ModeStandard::loop() {
         else if (event.IsChord(MODE_BUTTON, COVER_BUTTON)) {
             Serial.println("EVENT: CHORD -> Switching to Config");
             return ModeAction::SWITCH_TO_CONFIG; 
+        }
+    }
+    
+    // Check for timeout to switch to ScreenDark mode
+    // Only check if timeout is enabled (displayTimeoutSeconds > 0)
+    if (GlobalConfig.displayTimeoutSeconds > 0) {
+        int64_t now = esp_timer_get_time();
+        int64_t encoderLastInput = _encoder.getLastInputTime();
+        int64_t buttonsLastInput = _buttons.getLastInputTime();
+        
+        // Get the most recent input time
+        int64_t lastInputTime = (encoderLastInput > buttonsLastInput) ? encoderLastInput : buttonsLastInput;
+        
+        // Calculate timeout in microseconds
+        int64_t timeoutUs = GlobalConfig.displayTimeoutSeconds * 1000000LL;
+        
+        // If no input for the timeout period, switch to screen dark mode
+        if (now - lastInputTime > timeoutUs) {
+            Serial.println(F("Standard Mode: Timeout reached, switching to Screen Dark Mode"));
+            return ModeAction::SWITCH_TO_SCREEN_DARK;
         }
     }
     

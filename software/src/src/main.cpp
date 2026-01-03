@@ -19,6 +19,7 @@
 #include "AppMode.h"
 #include "ModeStandard.h"
 #include "ModeConfig.h"
+#include "ModeScreenDark.h"
 
 // --- Pin Definitionen ---
 #define ENCODER_BUTTON 8
@@ -52,6 +53,7 @@ U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE);
 AppMode* currentMode = nullptr;
 ModeStandard* modeStandard = nullptr;
 ModeConfig* modeConfig = nullptr;
+ModeScreenDark* modeScreenDark = nullptr;
 
 
 // --- Callbacks ---
@@ -122,6 +124,12 @@ void setup() {
       
   );
 
+  modeScreenDark = new ModeScreenDark(
+      u8g2,
+      encoder,
+      buttons
+  );
+
   // 3. Start-Modus setzen
   switchMode(modeStandard);
 }
@@ -152,6 +160,11 @@ void loop() {
           case ModeAction::SWITCH_TO_STANDARD:
               Serial.println(F("Main: Switching to Standard"));
               switchMode(modeStandard);
+              break;
+              
+          case ModeAction::SWITCH_TO_SCREEN_DARK:
+              Serial.println(F("Main: Switching to Screen Dark"));
+              switchMode(modeScreenDark);
               break;
               
           case ModeAction::NONE:

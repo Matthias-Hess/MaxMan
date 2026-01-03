@@ -1,4 +1,5 @@
 #include "ChordInput.h"
+#include <esp_timer.h>
 
 // =========================================================
 // Implementierung: KeyEvent Struct
@@ -45,6 +46,7 @@ ChordInput::ChordInput(std::initializer_list<int> pins)
 {
     _currentSequence = 0;
     _isRecording = false;
+    _lastInputTime = esp_timer_get_time();
 
     // Hardware initialisieren (Active Low angenommen -> INPUT_PULLUP)
     for (int pin : _pins) {
@@ -95,7 +97,8 @@ void ChordInput::tick() {
     if (liveInput > 0) {
         // FALL: Tasten sind gedrückt -> Aufnehmen/Erweitern
         _isRecording = true;
-        _currentSequence |= liveInput; 
+        _currentSequence |= liveInput;
+        _lastInputTime = esp_timer_get_time(); // Zeitstempel aktualisieren
     } 
     else {
         // FALL: Alle Tasten losgelassen
@@ -125,4 +128,8 @@ KeyEvent ChordInput::popEvent() {
     KeyEvent evt = _eventQueue.front();
     _eventQueue.pop();
     return evt;
+}
+
+int64_t ChordInput::getLastInputTime() const {
+    return _lastInputTime;
 }

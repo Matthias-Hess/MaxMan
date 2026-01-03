@@ -8,7 +8,8 @@
 enum class ModeAction {
     NONE,
     SWITCH_TO_CONFIG,
-    SWITCH_TO_STANDARD
+    SWITCH_TO_STANDARD,
+    SWITCH_TO_SCREEN_DARK
 };
 
 class AppMode {

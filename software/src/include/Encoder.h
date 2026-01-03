@@ -13,6 +13,9 @@ public:
     int getPosition();
     void reset();
 
+    // Gibt die Zeit des letzten erkannten Inputs zurück (in Mikrosekunden seit Boot)
+    int64_t getLastInputTime() const;
+
 private:
     static void IRAM_ATTR isrHandler(void* arg);
     void IRAM_ATTR handleISR();
@@ -23,4 +26,5 @@ private:
     volatile int delta;
     volatile int position;
     volatile uint8_t lastState;
+    volatile int64_t _lastInputTime;
 };

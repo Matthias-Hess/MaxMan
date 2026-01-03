@@ -1,9 +1,10 @@
 #include "Encoder.h"
 #include "soc/gpio_struct.h"
 #include "hal/gpio_ll.h"
+#include <esp_timer.h>
 
 Encoder::Encoder(uint8_t a, uint8_t b)
-: pinA(a), pinB(b), delta(0), position(0), lastState(0)
+: pinA(a), pinB(b), delta(0), position(0), lastState(0), _lastInputTime(0)
 {
 }
 
@@ -15,6 +16,9 @@ void Encoder::begin()
     uint8_t a = (GPIO.in.val >> pinA) & 1;
     uint8_t b = (GPIO.in.val >> pinB) & 1;
     lastState = (a << 1) | b;
+
+    // Initialize last input time to current time
+    _lastInputTime = esp_timer_get_time();
 
     attachInterruptArg(digitalPinToInterrupt(pinA), isrHandler, this, CHANGE);
     attachInterruptArg(digitalPinToInterrupt(pinB), isrHandler, this, CHANGE);
@@ -40,6 +44,7 @@ void IRAM_ATTR Encoder::handleISR()
     {
         delta++;
         position++;
+        _lastInputTime = esp_timer_get_time();
     }
     else if ((lastState == 0b00 && state == 0b10) ||
              (lastState == 0b10 && state == 0b11) ||
@@ -48,6 +53,7 @@ void IRAM_ATTR Encoder::handleISR()
     {
         delta--;
         position--;
+        _lastInputTime = esp_timer_get_time();
     }
 
     lastState = state;
@@ -76,4 +82,12 @@ void Encoder::reset()
     delta = 0;
     position = 0;
     interrupts();
+}
+
+int64_t Encoder::getLastInputTime() const {
+    // Protect read of 64-bit value from ISR writes
+    noInterrupts();
+    int64_t result = _lastInputTime;
+    interrupts();
+    return result;
 }
