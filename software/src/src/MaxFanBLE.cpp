@@ -6,7 +6,9 @@
 
 MaxFanBLE::MaxFanBLE() 
   : _pServer(nullptr), _pCommandChar(nullptr), _pStatusChar(nullptr), 
-    _onCommandReceived(nullptr), _deviceConnected(false), _pinCode(0) {
+    _onCommandReceived(nullptr), _deviceConnected(false), _pinCode(0),
+    _forceUpdate(true) // Starten mit erzwungenem Update
+{
 }
 
 void MaxFanBLE::begin(const char* deviceName) {
@@ -62,11 +64,30 @@ void MaxFanBLE::setCommandCallback(CommandCallback callback) {
     _onCommandReceived = callback;
 }
 
-void MaxFanBLE::notifyStatus(const String& jsonStatus) {
-    if (_deviceConnected && _pStatusChar) {
-        _pStatusChar->setValue(jsonStatus.c_str());
-        _pStatusChar->notify();
+void MaxFanBLE::notifyStatus(const MaxFanState& currentState) {
+    // 1. Wenn keiner zuhört, sofort raus
+    if (!_deviceConnected || !_pStatusChar) {
+        return;
     }
+
+    // 2. STROMSPAR-CHECK:
+    // Nutzt den effizienten == Operator von MaxFanState.
+    // Wenn Zustand gleich wie vorher UND kein erzwungenes Update -> Raus!
+    if ((_lastSentState == currentState) && !_forceUpdate) {
+        return; 
+    }
+
+    // 3. Es hat sich was geändert (oder neuer Client):
+    _lastSentState = currentState; // Zustand merken (Byte-Kopie)
+    _forceUpdate = false;          // Flag zurücksetzen
+
+    // Erst JETZT den String für das Handy bauen
+    String jsonStatus = currentState.ToJson(); 
+    
+    // Senden
+    _pStatusChar->setValue(jsonStatus.c_str());
+    _pStatusChar->notify();
+    Serial.println("Notified CLient");
 }
 
 bool MaxFanBLE::isConnected() {
@@ -77,6 +98,10 @@ bool MaxFanBLE::isConnected() {
 
 void MaxFanBLE::MyServerCallbacks::onConnect(BLEServer* s) {
     _parent->_deviceConnected = true;
+    // WICHTIG: Wenn sich das Handy neu verbindet, kennt es den aktuellen Status nicht.
+    // Wir zwingen notifyStatus() dazu, beim nächsten Mal zu senden,
+    // auch wenn sich der State technisch nicht geändert hat.
+    _parent->_forceUpdate = true;
     Serial.println("BLE: Client verbunden.");
 }
 

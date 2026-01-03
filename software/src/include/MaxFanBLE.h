@@ -8,6 +8,7 @@
 #include <BLE2902.h>
 #include <Preferences.h>
 #include <functional>
+#include "MaxFanState.h"
 
 class MaxFanBLE {
 public:
@@ -18,7 +19,7 @@ public:
     
     void begin(const char* deviceName = "MaxxFan Controller");
     void setCommandCallback(CommandCallback callback);
-    void notifyStatus(const String& jsonStatus);
+    void notifyStatus(const MaxFanState& currentState);
     bool isConnected();
     uint32_t getPin() const { return _pinCode; }
 
@@ -26,7 +27,8 @@ private:
     BLEServer* _pServer;
     BLECharacteristic* _pCommandChar;
     BLECharacteristic* _pStatusChar;
-    
+    MaxFanState _lastSentState; 
+    bool _forceUpdate;
     CommandCallback _onCommandReceived;
     bool _deviceConnected;
     uint32_t _pinCode;

@@ -20,7 +20,7 @@ ModeAction ModeStandard::loop() {
     }
 
     if(isConnected){
-        _ble.notifyStatus(_state.ToJson());
+        _ble.notifyStatus(_state);
     }
 
     _remote.send(_state);
