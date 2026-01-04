@@ -12,6 +12,7 @@
 #include <MaxErrors.h>
 #include "MaxFanConfig.h"
 #include "RemoteAccess.h"
+#include "NilRemote.h"
 
 // --- Input & Grafik ---
 #include "Encoder.h"
@@ -59,6 +60,7 @@ ModeStandard* modeStandard = nullptr;
 ModeConfig* modeConfig = nullptr;
 ModeScreenDark* modeScreenDark = nullptr;
 RemoteAccess* activeRemote = nullptr;
+NilRemote nilRemote;
 
 
 // --- Callbacks ---
@@ -140,7 +142,8 @@ void setup() {
       activeRemote = &fanBLE;
       Serial.println("Using BLE Access");
     } else {
-      activeRemote = nullptr;
+      activeRemote = &nilRemote;
+      Serial.println("Using NilRemote (no remote)");
     }
 
   // 2. Modi Instanziieren (Dependency Injection)

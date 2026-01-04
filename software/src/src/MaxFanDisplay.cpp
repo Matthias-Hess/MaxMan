@@ -59,7 +59,7 @@ void MaxFanDisplay::showError(MaxError error) {
 
 
 
-void MaxFanDisplay::update(const MaxFanState& state, RemoteAccess::Icon icon, bool isConnected, long encoderPos) {
+void MaxFanDisplay::update(const MaxFanState& state, RemoteAccess::Icon icon, bool isConnected, char indicator, long encoderPos) {
     _u8g2.clearBuffer();
     _u8g2.setFontMode(1);
     _u8g2.setBitmapMode(1);
@@ -136,7 +136,15 @@ void MaxFanDisplay::update(const MaxFanState& state, RemoteAccess::Icon icon, bo
         const int iconH = 7;
         const int iconX = 116;
         const int iconY = 20;
-        if (isConnected) {
+        // If an indicator letter is present, render it left of the icon and do not draw the filled rectangle.
+        if (indicator != '\0') {
+            _u8g2.setFont(u8g2_font_t0_11_tr);
+            _u8g2.setDrawColor(1);
+            // draw letter slightly left and centered vertically to the icon
+            _u8g2.drawStr(iconX - 10, iconY + (iconH / 2) + 4, String(indicator).c_str());
+            _u8g2.setDrawColor(1);
+            _u8g2.drawXBMP(iconX, iconY, iconW, iconH, image_mqtt_bits);
+        } else if (isConnected) {
             _u8g2.setDrawColor(1);
             _u8g2.drawBox(iconX - 2, iconY - 2, iconW + 4, iconH + 4);
             _u8g2.setDrawColor(2);
@@ -150,7 +158,13 @@ void MaxFanDisplay::update(const MaxFanState& state, RemoteAccess::Icon icon, bo
         const int iconH = 11;
         const int iconX = 116;
         const int iconY = 18;
-        if (isConnected) {
+        if (indicator != '\0') {
+            _u8g2.setFont(u8g2_font_t0_11_tr);
+            _u8g2.setDrawColor(1);
+            _u8g2.drawStr(iconX - 10, iconY + (iconH / 2) + 4, String(indicator).c_str());
+            _u8g2.setDrawColor(1);
+            _u8g2.drawXBMP(iconX, iconY, iconW, iconH, image_BTConnected_bits);
+        } else if (isConnected) {
             _u8g2.setDrawColor(1);
             _u8g2.drawBox(iconX - 2, iconY - 2, iconW + 4, iconH + 4);
             _u8g2.setDrawColor(2);

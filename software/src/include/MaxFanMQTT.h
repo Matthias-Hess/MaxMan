@@ -13,6 +13,7 @@ public:
     void notifyStatus(const MaxFanState& currentState) override;
     void loop() override;
     bool isConnected() override;
+    char getIndicatorLetter() override;
     RemoteAccess::Icon getIcon() override { return RemoteAccess::ICON_MQTT; }
 
 private:

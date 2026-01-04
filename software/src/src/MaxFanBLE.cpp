@@ -6,8 +6,8 @@
 
 MaxFanBLE::MaxFanBLE() 
   : _pServer(nullptr), _pCommandChar(nullptr), _pStatusChar(nullptr), 
-    _onCommandReceived(nullptr), _deviceConnected(false), _pinCode(0),
-    _forceUpdate(true) // Starten mit erzwungenem Update
+        _onCommandReceived(nullptr), _deviceConnected(false), _bonded(false), _pinCode(0),
+        _forceUpdate(true) // Starten mit erzwungenem Update
 {
 }
 
@@ -22,7 +22,7 @@ void MaxFanBLE::begin(const char* deviceName) {
 
     // 3. Security Einstellungen (Still notwendig für PIN-Abfrage am Handy)
     BLEDevice::setEncryptionLevel(ESP_BLE_SEC_ENCRYPT_MITM);
-    BLEDevice::setSecurityCallbacks(new MySecurityCallbacks());
+    BLEDevice::setSecurityCallbacks(new MySecurityCallbacks(this));
 
     BLESecurity *pSecurity = new BLESecurity();
     pSecurity->setStaticPIN(_pinCode); 
@@ -95,9 +95,6 @@ void MaxFanBLE::notifyStatus(const MaxFanState& currentState) {
     Serial.println("Notified CLient");
 }
 
-bool MaxFanBLE::isConnected() {
-    return _deviceConnected;
-}
 
 // --- Callbacks ---
 
@@ -125,4 +122,26 @@ void MaxFanBLE::MyCharCallbacks::onWrite(BLECharacteristic* pChar) {
 
 void MaxFanBLE::loop() {
     // BLE server runs in background; nothing to do each loop for now
+}
+
+void MaxFanBLE::MySecurityCallbacks::onAuthenticationComplete(esp_ble_auth_cmpl_t cmpl) {
+    if (_parent) {
+        _parent->_bonded = (cmpl.success == 1);
+        if (_parent->_bonded) {
+            Serial.println("BLE: Bonding complete");
+        } else {
+            Serial.println("BLE: Bonding failed or not completed");
+        }
+    }
+}
+
+char MaxFanBLE::getIndicatorLetter() {
+    // If connected but not bonded -> indicate B
+    if (_deviceConnected && !_bonded) return 'B';
+    return '\0';
+}
+
+bool MaxFanBLE::isConnected() {
+    // Consider connected only if device connected AND bonded
+    return _deviceConnected && _bonded;
 }

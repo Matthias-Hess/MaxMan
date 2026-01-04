@@ -19,6 +19,8 @@ public:
 
     // Returns the icon to use for display.
     virtual Icon getIcon() = 0;
+    // Returns a single-character indicator when connection is partial (e.g. 'W','R','C','B'), or '\0' when none.
+    virtual char getIndicatorLetter() = 0;
 };
 
 #endif

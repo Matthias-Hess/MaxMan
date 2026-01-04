@@ -19,7 +19,7 @@ ModeAction ModeStandard::loop() {
 
     _remote.send(_state);
     _irReceiver.update(_state);
-        _display.update(_state, _remoteAccess.getIcon(), isConnected, _testValue);
+        _display.update(_state, _remoteAccess.getIcon(), isConnected, _remoteAccess.getIndicatorLetter(), _testValue);
 
     int delta = _encoder.getDelta();
     

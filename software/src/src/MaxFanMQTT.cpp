@@ -143,6 +143,26 @@ bool MaxFanMQTT::isConnected() {
     return _mqtt.connected();
 }
 
+char MaxFanMQTT::getIndicatorLetter() {
+    // WiFi not connected -> W
+    if (WiFi.status() != WL_CONNECTED) return 'W';
+
+    // If WiFi connected but MQTT not connected, inspect state
+    if (!_mqtt.connected()) {
+        int st = _mqtt.state();
+        // PubSubClient state mapping (connect error reasons):
+        // 3 -> MQTT_CONNECT_UNAVAILABLE (host unreachable)
+        // 4 -> MQTT_CONNECT_BAD_CREDENTIALS
+        // 5 -> MQTT_CONNECT_UNAUTHORIZED
+        if (st == 3) return 'R';
+        if (st == 4 || st == 5) return 'C';
+        // Fallback for other errors: show 'R' (remote unreachable)
+        return 'R';
+    }
+
+    return '\0';
+}
+
 void MaxFanMQTT::mqttCallbackStatic(char* topic, byte* payload, unsigned int length) {
     if (instanceForCallback) instanceForCallback->mqttCallback(topic, payload, length);
 }

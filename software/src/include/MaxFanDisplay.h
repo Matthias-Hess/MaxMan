@@ -14,7 +14,7 @@ public:
     bool begin();
     
     // Die Update-Methode zeichnet das komplette UI neu
-    void update(const MaxFanState& state, RemoteAccess::Icon icon, bool isConnected, long encoderPos);
+    void update(const MaxFanState& state, RemoteAccess::Icon icon, bool isConnected, char indicator, long encoderPos);
     void showError(MaxError error);
     
 private:

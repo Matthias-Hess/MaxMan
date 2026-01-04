@@ -22,6 +22,7 @@ public:
     RemoteAccess::Icon getIcon() override { return RemoteAccess::ICON_BLE; }
     void loop() override;
     uint32_t getPin() const { return _pinCode; }
+    char getIndicatorLetter() override;
 
 private:
     BLEServer* _pServer;
@@ -31,6 +32,7 @@ private:
     bool _forceUpdate;
     CommandCallback _onCommandReceived;
     bool _deviceConnected;
+    bool _bonded;
     uint32_t _pinCode;
 
     // --- Interne Klassen ---
@@ -53,11 +55,13 @@ private:
     // aber ohne Kommunikation nach außen.
     class MySecurityCallbacks : public BLESecurityCallbacks {
     public:
+        MaxFanBLE* _parent;
+        MySecurityCallbacks(MaxFanBLE* p) : _parent(p) {}
         uint32_t onPassKeyRequest() override { return 0; }
         void onPassKeyNotify(uint32_t pass_key) override {}
         bool onConfirmPIN(uint32_t pass_key) override { return true; }
         bool onSecurityRequest() override { return true; }
-        void onAuthenticationComplete(esp_ble_auth_cmpl_t cmpl) override {}
+        void onAuthenticationComplete(esp_ble_auth_cmpl_t cmpl) override;
     };
 };
 
