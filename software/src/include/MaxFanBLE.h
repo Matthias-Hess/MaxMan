@@ -9,18 +9,17 @@
 #include <Preferences.h>
 #include <functional>
 #include "MaxFanState.h"
+#include "RemoteAccess.h"
 
-class MaxFanBLE {
+class MaxFanBLE : public RemoteAccess {
 public:
-    // Nur noch der Command Callback für Befehle
-    typedef std::function<void(const String&)> CommandCallback;
-
     MaxFanBLE();
     
     void begin(const char* deviceName = "MaxxFan Controller");
-    void setCommandCallback(CommandCallback callback);
-    void notifyStatus(const MaxFanState& currentState);
-    bool isConnected();
+    void setCommandCallback(RemoteAccess::CommandCallback callback) override;
+    void notifyStatus(const MaxFanState& currentState) override;
+    bool isConnected() override;
+    void loop() override;
     uint32_t getPin() const { return _pinCode; }
 
 private:

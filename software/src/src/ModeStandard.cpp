@@ -11,10 +11,10 @@ void ModeStandard::enter() {
 
 ModeAction ModeStandard::loop() {
     
-    bool isConnected = _ble.isConnected();
-  
+    bool isConnected = _remoteAccess.isConnected();
+
     if(isConnected){
-        _ble.notifyStatus(_state);
+        _remoteAccess.notifyStatus(_state);
     }
 
     _remote.send(_state);

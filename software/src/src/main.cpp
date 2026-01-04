@@ -1,14 +1,17 @@
 #include <Arduino.h>
 #include <Wire.h>
 #include <Preferences.h>
+#include <WiFi.h>
 // --- Deine Bibliotheken ---
 #include <MaxRemote.h>
 #include <MaxReceiver.h>
 #include <MaxFanBLE.h>
+#include <MaxFanMQTT.h>
 #include <MaxFanState.h>
 #include <MaxFanDisplay.h> // Deine alte Display Klasse (für Standard Mode)
 #include <MaxErrors.h>
 #include "MaxFanConfig.h"
+#include "RemoteAccess.h"
 
 // --- Input & Grafik ---
 #include "Encoder.h"
@@ -31,6 +34,7 @@
 // 1. Core Logic
 MaxFanState maxFanState;
 MaxFanBLE fanBLE;
+MaxFanMQTT fanMQTT;
 MaxRemote fanRemote(2);
 MaxReceiver fanIrReceiver(3);
 
@@ -54,6 +58,7 @@ AppMode* currentMode = nullptr;
 ModeStandard* modeStandard = nullptr;
 ModeConfig* modeConfig = nullptr;
 ModeScreenDark* modeScreenDark = nullptr;
+RemoteAccess* activeRemote = nullptr;
 
 
 // --- Callbacks ---
@@ -75,9 +80,30 @@ void switchMode(AppMode* newMode) {
 
 void setup() {
   Serial.begin(115200);
-  delay(500); 
+  delay(2000); 
 
   ConfigManager::load();
+
+  // If MQTT is selected, try to connect to WiFi using stored credentials
+  if (GlobalConfig.connection == 2) {
+    Serial.print("Attempting WiFi connect to: ");
+    Serial.println(GlobalConfig.wifiSSID);
+    if (strlen(GlobalConfig.wifiSSID) > 0) {
+      WiFi.begin(GlobalConfig.wifiSSID, GlobalConfig.wifiPassword);
+      unsigned long start = millis();
+      while (WiFi.status() != WL_CONNECTED && millis() - start < 10000) {
+        delay(500);
+        Serial.print('.');
+      }
+      Serial.println();
+      if (WiFi.status() == WL_CONNECTED) {
+        Serial.print("WiFi connected, IP: ");
+        Serial.println(WiFi.localIP());
+      } else {
+        Serial.println("WiFi connect failed");
+      }
+    }
+  }
 
   Serial.print("Booting Version: ");
   Serial.println(APP_VERSION);
@@ -100,13 +126,27 @@ void setup() {
   fanIrReceiver.begin();
   fanRemote.begin();
   
-  fanBLE.setCommandCallback(onBLECommand);
-   fanBLE.begin();
+    fanBLE.setCommandCallback(onBLECommand);
+    fanBLE.begin();
+
+    fanMQTT.setCommandCallback(onBLECommand);
+    fanMQTT.begin();
+
+    // Select active remote based on config
+    if (GlobalConfig.connection == 2) {
+      activeRemote = &fanMQTT;
+      Serial.println("Using MQTT Remote Access");
+    } else if (GlobalConfig.connection == 1) {
+      activeRemote = &fanBLE;
+      Serial.println("Using BLE Access");
+    } else {
+      activeRemote = nullptr;
+    }
 
   // 2. Modi Instanziieren (Dependency Injection)
   // Wir übergeben alle Hardware-Objekte, die der jeweilige Mode braucht.
   
-  modeStandard = new ModeStandard(
+    modeStandard = new ModeStandard(
       u8g2,          
       encoder, 
       buttons,
@@ -114,8 +154,8 @@ void setup() {
       fanDisplay,     
       fanRemote, 
       fanIrReceiver, 
-      fanBLE
-  );
+      (activeRemote ? *activeRemote : fanBLE)
+    );
 
   modeConfig = new ModeConfig(
       &u8g2,           
@@ -124,15 +164,15 @@ void setup() {
       
   );
 
-  modeScreenDark = new ModeScreenDark(
+    modeScreenDark = new ModeScreenDark(
       u8g2,
       encoder,
       buttons,
       maxFanState,
       fanRemote,
       fanIrReceiver,
-      fanBLE
-  );
+      (activeRemote ? *activeRemote : fanBLE)
+    );
 
   // 3. Start-Modus setzen
   switchMode(modeStandard);
@@ -175,5 +215,10 @@ void loop() {
           default:
               break;
       }
+  }
+
+  // Ensure the active remote can service its background tasks (MQTT loop, reconnection)
+  if (activeRemote) {
+      activeRemote->loop();
   }
 }

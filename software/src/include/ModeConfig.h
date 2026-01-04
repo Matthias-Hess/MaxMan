@@ -36,6 +36,7 @@ private:
     GEMPage _pageRemote;        
     GEMPage _pageWifi;          
     GEMPage _pageBle;           
+    GEMPage _pageMqtt;         
     GEMPage _pageDisplay;       
     GEMPage _pageVersionInfo;   
     GEMPage _pageExit;          
@@ -46,6 +47,7 @@ private:
     // --- NAVIGATION ITEMS ---
     GEMItem _itemNavRemote;
     GEMItem _itemNavWifi;
+    GEMItem _itemNavMqtt;
     GEMItem _itemNavBle;
     GEMItem _itemNavDisplay;
     GEMItem _itemNavVersion;
@@ -54,6 +56,7 @@ private:
     // --- BACK BUTTONS ---
     GEMItem _itemBackRemote;
     GEMItem _itemBackWifi;
+    GEMItem _itemBackMqtt;
     GEMItem _itemBackBle;
     GEMItem _itemBackDisplay;
     GEMItem _itemBackVersion;
@@ -63,7 +66,15 @@ private:
     GEMItem _itemConnection;    
     GEMItem _itemSsid;
     GEMItem _itemPassword;
+    GEMItem _itemMqttHost;
+    GEMItem _itemMqttPort;
+    GEMItem _itemMqttClientId;
+    GEMItem _itemMqttUser;
+    GEMItem _itemMqttPassword;
+    GEMItem _itemMqttCommandTopic;
+    GEMItem _itemMqttStateTopic;
     GEMItem _itemTestWifi;      
+    GEMItem _itemTestMqtt;
     GEMItem _itemBlePin;
     GEMItem _itemGenerateNewPIN;
     GEMItem _itemDisplayTimeoutSeconds;
@@ -90,6 +101,7 @@ private:
     static void callbackGoBackToVersion();  
     static void callbackGenerateNewPIN();
     static void callbackTestWifi(); 
+    static void callbackTestMqtt();
     
     static void callbackCheckForUpdates();
     static void callbackInstallUpdate(GEMCallbackData data);

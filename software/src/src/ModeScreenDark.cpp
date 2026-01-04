@@ -2,10 +2,10 @@
 #include <U8g2lib.h>
 
 ModeScreenDark::ModeScreenDark(U8G2& u8g2, Encoder& enc, ChordInput& btns,
-                               MaxFanState& state, MaxRemote& remote, 
-                               MaxReceiver& irReceiver, MaxFanBLE& ble)
-    : AppMode(u8g2, enc, btns),
-      _state(state), _remote(remote), _irReceiver(irReceiver), _ble(ble)
+                                                             MaxFanState& state, MaxRemote& remote, 
+                                                             MaxReceiver& irReceiver, RemoteAccess& remoteAccess)
+        : AppMode(u8g2, enc, btns),
+            _state(state), _remote(remote), _irReceiver(irReceiver), _remoteAccess(remoteAccess)
 {
 }
 
@@ -21,10 +21,10 @@ void ModeScreenDark::enter() {
 }
 
 ModeAction ModeScreenDark::loop() {
-    bool isConnected = _ble.isConnected();
-  
+    bool isConnected = _remoteAccess.isConnected();
+
     if(isConnected){
-        _ble.notifyStatus(_state);
+        _remoteAccess.notifyStatus(_state);
     }
 
     _remote.send(_state);

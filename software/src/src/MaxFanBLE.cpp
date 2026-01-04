@@ -117,3 +117,7 @@ void MaxFanBLE::MyCharCallbacks::onWrite(BLECharacteristic* pChar) {
         _parent->_onCommandReceived(String(rxValue.c_str()));
     }
 }
+
+void MaxFanBLE::loop() {
+    // BLE server runs in background; nothing to do each loop for now
+}

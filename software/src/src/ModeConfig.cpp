@@ -14,7 +14,7 @@ ModeConfig* ModeConfig::instance = nullptr;
 SelectOptionInt optionsConnection[] = {
     {"None", 0},
     {"BLE",  1},
-    {"WLAN", 2}
+    {"MQTT", 2}
 };
 
 SelectOptionInt optionsTimeout[] = {
@@ -42,6 +42,7 @@ ModeConfig::ModeConfig(U8G2* display, Encoder* encoder, ChordInput* input)
     _pageMain("Settings"),
     _pageRemote("Remote Access"),
     _pageWifi("Wi-Fi Settings"),
+    _pageMqtt("MQTT Settings"),
     _pageBle("Bluetooth LE"),
     _pageDisplay("Display"),
     _pageVersionInfo("Firmware Version"),
@@ -50,6 +51,7 @@ ModeConfig::ModeConfig(U8G2* display, Encoder* encoder, ChordInput* input)
 
     // --- NAVIGATION ITEMS ---
     _itemNavWifi("Wi-Fi", _pageWifi),
+    _itemNavMqtt("MQTT", _pageMqtt),
     _itemNavBle("Bluetooth LE", _pageBle),
     _itemNavRemote("Remote Access", _pageRemote),
     _itemNavDisplay("Display", _pageDisplay),
@@ -59,6 +61,7 @@ ModeConfig::ModeConfig(U8G2* display, Encoder* encoder, ChordInput* input)
     // --- BACK BUTTONS ---
     _itemBackRemote("Back", callbackGoBackToMain),
     _itemBackWifi("Back", callbackGoBackToMain),
+    _itemBackMqtt("Back", callbackGoBackToMain),
     _itemBackBle("Back", callbackGoBackToMain),
     _itemBackDisplay("Back", callbackGoBackToMain),
     _itemBackVersion("Back", callbackGoBackToMain),
@@ -68,7 +71,15 @@ ModeConfig::ModeConfig(U8G2* display, Encoder* encoder, ChordInput* input)
     _itemConnection("Connection", _editConfig.connection, selectConnection),
     _itemSsid("SSID:", _editConfig.wifiSSID),
     _itemPassword("Password:", _editConfig.wifiPassword),
+    _itemMqttHost("Host:", _editConfig.mqttHost),
+    _itemMqttPort("Port:", _editConfig.mqttPort),
+    _itemMqttClientId("Client ID:", _editConfig.mqttClientId),
+    _itemMqttUser("User:", _editConfig.mqttUsername),
+    _itemMqttPassword("Password:", _editConfig.mqttPassword),
+    _itemMqttCommandTopic("Cmd topic:", _editConfig.mqttCommandTopic),
+    _itemMqttStateTopic("State topic:", _editConfig.mqttStateTopic),
     _itemTestWifi("Test Connection", callbackTestWifi),
+    _itemTestMqtt("Test Connection", callbackTestMqtt),
     _itemBlePin("PIN:", _editConfig.blePin),
     _itemGenerateNewPIN("Generate new PIN", callbackGenerateNewPIN),
     _itemDisplayTimeoutSeconds("Dim after", _editConfig.displayTimeoutSeconds, selectTimeout),
@@ -89,6 +100,7 @@ ModeConfig::ModeConfig(U8G2* display, Encoder* encoder, ChordInput* input)
 
     // 1. Main Page
     _pageMain.addMenuItem(_itemNavWifi);
+    _pageMain.addMenuItem(_itemNavMqtt);
     _pageMain.addMenuItem(_itemNavBle);
     _pageMain.addMenuItem(_itemNavRemote);
     _pageMain.addMenuItem(_itemNavDisplay);
@@ -104,6 +116,17 @@ ModeConfig::ModeConfig(U8G2* display, Encoder* encoder, ChordInput* input)
     _pageWifi.addMenuItem(_itemPassword);
     _pageWifi.addMenuItem(_itemTestWifi);
     _pageWifi.addMenuItem(_itemBackWifi);     
+
+    // 3b. MQTT Page
+    _pageMqtt.addMenuItem(_itemMqttHost);
+    _pageMqtt.addMenuItem(_itemMqttPort);
+    _pageMqtt.addMenuItem(_itemMqttClientId);
+    _pageMqtt.addMenuItem(_itemMqttUser);
+    _pageMqtt.addMenuItem(_itemMqttPassword);
+    _pageMqtt.addMenuItem(_itemMqttCommandTopic);
+    _pageMqtt.addMenuItem(_itemMqttStateTopic);
+    _pageMqtt.addMenuItem(_itemTestMqtt);
+    _pageMqtt.addMenuItem(_itemBackMqtt);
 
     // 4. BLE Page
     _pageBle.addMenuItem(_itemBlePin);
@@ -262,6 +285,73 @@ void ModeConfig::callbackTestWifi() {
     delay(500);
 
     bool success = instance->connectToWiFi(true);
+
+    instance->_display.clearBuffer();
+    if (success) {
+        instance->_display.drawStr(0, 30, "Connection");
+        instance->_display.drawStr(0, 50, "Successful!");
+    } else {
+        instance->_display.drawStr(0, 30, "Connection");
+        instance->_display.drawStr(0, 50, "Failed!");
+    }
+    instance->_display.sendBuffer();
+    delay(2000);
+    instance->_menu.drawMenu();
+}
+
+void ModeConfig::callbackTestMqtt() {
+    instance->_display.clearBuffer();
+    instance->_display.drawStr(0, 20, "Testing MQTT...");
+    instance->_display.sendBuffer();
+
+    if (!instance->connectToWiFi(true)) {
+        instance->showError("WiFi Failed", "Check Settings");
+        return;
+    }
+
+    const char* host = instance->_editConfig.mqttHost;
+    int port = instance->_editConfig.mqttPort;
+
+    // Basic host validation
+    auto isValidHost = [](const char* h)->bool{
+        if (!h) return false;
+        size_t l = strlen(h);
+        if (l == 0) return false;
+        for (size_t i = 0; i < l; ++i) {
+            char c = h[i];
+            if (c == ' ' || c == '\t' || c == '\n' || c == '\r') return false;
+        }
+        return true;
+    };
+
+    auto isValidTopic = [](const char* t)->bool{
+        if (!t) return false;
+        size_t l = strlen(t);
+        if (l == 0) return false;
+        for (size_t i = 0; i < l; ++i) {
+            char c = t[i];
+            if (c == ' ' || c == '\t' || c == '\n' || c == '\r') return false;
+        }
+        return true;
+    };
+
+    if (!isValidHost(host)) {
+        instance->showError("MQTT Host invalid", "No whitespace, e.g. test.mosquitto.org");
+        return;
+    }
+
+    if (!isValidTopic(instance->_editConfig.mqttCommandTopic) || !isValidTopic(instance->_editConfig.mqttStateTopic)) {
+        instance->showError("MQTT Topic invalid", "No whitespace allowed in topics");
+        return;
+    }
+
+    WiFiClient client;
+    bool success = false;
+
+    if (client.connect(host, port)) {
+        success = true;
+        client.stop();
+    }
 
     instance->_display.clearBuffer();
     if (success) {

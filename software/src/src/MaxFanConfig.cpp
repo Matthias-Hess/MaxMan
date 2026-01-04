@@ -49,6 +49,35 @@ void ConfigManager::load() {
     strncpy(GlobalConfig.wifiSSID, wifiSSID.c_str(), 64);
     GlobalConfig.wifiSSID[63] = '\0'; // Safety
 
+    // MQTT fields
+    String mqttHost = prefs.getString("mqttHost", "test.mosquitto.org");
+    strncpy(GlobalConfig.mqttHost, mqttHost.c_str(), 64);
+    GlobalConfig.mqttHost[63] = '\0';
+
+    GlobalConfig.mqttPort = prefs.getInt("mqttPort", 1883);
+
+    String mqttClientId = prefs.getString("mqttClientId", "");
+    strncpy(GlobalConfig.mqttClientId, mqttClientId.c_str(), 64);
+    GlobalConfig.mqttClientId[63] = '\0';
+
+    String mqttUser = prefs.getString("mqttUser", "");
+    strncpy(GlobalConfig.mqttUsername, mqttUser.c_str(), 64);
+    GlobalConfig.mqttUsername[63] = '\0';
+
+    String mqttPass = prefs.getString("mqttPassword", "");
+    strncpy(GlobalConfig.mqttPassword, mqttPass.c_str(), 64);
+    GlobalConfig.mqttPassword[63] = '\0';
+
+    String cmdTopic = prefs.getString("mqttCommandTopic", "FanState/set");
+    strncpy(GlobalConfig.mqttCommandTopic, cmdTopic.c_str(), 64);
+    GlobalConfig.mqttCommandTopic[63] = '\0';
+
+    String stateTopic = prefs.getString("mqttStateTopic", "FanState/status");
+    strncpy(GlobalConfig.mqttStateTopic, stateTopic.c_str(), 64);
+    GlobalConfig.mqttStateTopic[63] = '\0';
+
+    GlobalConfig.mqttUseTls = prefs.getBool("mqttUseTls", false);
+
     prefs.end();
     Serial.println("ConfigManager: Config geladen.");
 }
@@ -64,6 +93,15 @@ void ConfigManager::saveAndReboot(const ConfigData& newData) {
     prefs.putInt("displayTimeoutS", newData.displayTimeoutSeconds);
     prefs.putString("wifiPassword", newData.wifiPassword);
     prefs.putString("wifiSSID", newData.wifiSSID);
+    // MQTT
+    prefs.putString("mqttHost", newData.mqttHost);
+    prefs.putInt("mqttPort", newData.mqttPort);
+    prefs.putString("mqttClientId", newData.mqttClientId);
+    prefs.putString("mqttUser", newData.mqttUsername);
+    prefs.putString("mqttPassword", newData.mqttPassword);
+    prefs.putString("mqttCommandTopic", newData.mqttCommandTopic);
+    prefs.putString("mqttStateTopic", newData.mqttStateTopic);
+    prefs.putBool("mqttUseTls", newData.mqttUseTls);
     prefs.end();
 
     // Der intelligente Check: Wurde der PIN geändert?

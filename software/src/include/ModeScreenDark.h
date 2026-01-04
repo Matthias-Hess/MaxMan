@@ -4,19 +4,19 @@
 #include <MaxFanState.h>
 #include <MaxRemote.h>
 #include <MaxReceiver.h>
-#include <MaxFanBLE.h>
+#include "RemoteAccess.h"
 
 class ModeScreenDark : public AppMode {
 private:
     MaxFanState& _state;
     MaxRemote& _remote;
     MaxReceiver& _irReceiver;
-    MaxFanBLE& _ble;
+    RemoteAccess& _remoteAccess;
 
 public:
     ModeScreenDark(U8G2& u8g2, Encoder& enc, ChordInput& btns,
                    MaxFanState& state, MaxRemote& remote, 
-                   MaxReceiver& irReceiver, MaxFanBLE& ble);
+                   MaxReceiver& irReceiver, RemoteAccess& remoteAccess);
 
     virtual void enter() override;
     virtual ModeAction loop() override;
