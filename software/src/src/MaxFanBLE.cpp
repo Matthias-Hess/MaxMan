@@ -58,6 +58,11 @@ void MaxFanBLE::begin(const char* deviceName) {
     BLEDevice::startAdvertising();
 
     Serial.println("BLE bereit (Sicherer Modus).");
+    if (deviceName) {
+        Serial.print("BLE: Device name: ");
+        Serial.println(deviceName);
+    }
+    Serial.println("BLE: Advertising started");
 }
 
 void MaxFanBLE::setCommandCallback(CommandCallback callback) {

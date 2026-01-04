@@ -5,6 +5,7 @@
 #include <U8g2lib.h>
 #include <Wire.h>
 #include <MaxFanState.h>
+#include "RemoteAccess.h"
 
 
 class MaxFanDisplay {
@@ -13,7 +14,7 @@ public:
     bool begin();
     
     // Die Update-Methode zeichnet das komplette UI neu
-    void update(const MaxFanState& state, bool bleConnected, long encoderPos);
+    void update(const MaxFanState& state, RemoteAccess::Icon icon, bool isConnected, long encoderPos);
     void showError(MaxError error);
     
 private:

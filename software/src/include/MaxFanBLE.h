@@ -19,6 +19,7 @@ public:
     void setCommandCallback(RemoteAccess::CommandCallback callback) override;
     void notifyStatus(const MaxFanState& currentState) override;
     bool isConnected() override;
+    RemoteAccess::Icon getIcon() override { return RemoteAccess::ICON_BLE; }
     void loop() override;
     uint32_t getPin() const { return _pinCode; }
 
