@@ -59,7 +59,7 @@ void MaxFanDisplay::showError(MaxError error) {
 
 
 
-void MaxFanDisplay::update(const MaxFanState& state, RemoteAccess::Icon icon, bool isConnected, char indicator, long encoderPos) {
+void MaxFanDisplay::update(const MaxFanState& state, FanController::Icon icon, bool isConnected, char indicator, long encoderPos) {
     _u8g2.clearBuffer();
     _u8g2.setFontMode(1);
     _u8g2.setBitmapMode(1);
@@ -131,7 +131,7 @@ void MaxFanDisplay::update(const MaxFanState& state, RemoteAccess::Icon icon, bo
     }
 
     // Connection icon handling: `icon` selects icon, `isConnected` controls highlighted (filled box + XOR draw)
-    if (icon == RemoteAccess::ICON_MQTT) {
+    if (icon == FanController::ICON_MQTT) {
         const int iconW = 7;
         const int iconH = 7;
         const int iconX = 116;
@@ -153,7 +153,7 @@ void MaxFanDisplay::update(const MaxFanState& state, RemoteAccess::Icon icon, bo
             _u8g2.setDrawColor(1);
             _u8g2.drawXBMP(iconX, iconY, iconW, iconH, image_mqtt_bits);
         }
-    } else if (icon == RemoteAccess::ICON_BLE) {
+    } else if (icon == FanController::ICON_BLE) {
         const int iconW = 8;
         const int iconH = 11;
         const int iconX = 116;

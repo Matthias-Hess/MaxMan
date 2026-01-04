@@ -3,7 +3,7 @@
 
 ModeScreenDark::ModeScreenDark(U8G2& u8g2, Encoder& enc, ChordInput& btns,
                                                              MaxFanState& state, MaxRemote& remote, 
-                                                             MaxReceiver& irReceiver, RemoteAccess& remoteAccess)
+                                                             MaxReceiver& irReceiver, FanController& remoteAccess)
         : AppMode(u8g2, enc, btns),
             _state(state), _remote(remote), _irReceiver(irReceiver), _remoteAccess(remoteAccess)
 {

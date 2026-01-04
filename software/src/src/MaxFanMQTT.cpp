@@ -3,31 +3,31 @@
 #include <Arduino.h>
 
 // PubSubClient requires a client reference; we'll set callback to static function
-static MaxFanMQTT* instanceForCallback = nullptr;
+static MqttController* instanceForCallback = nullptr;
 
-MaxFanMQTT::MaxFanMQTT()
+MqttController::MqttController()
     : _mqtt(_wifiClient), _onCommandReceived(nullptr), _connected(false),
       _lastSentState(), _forceUpdate(true), _lastConnectAttemptMs(0), _reconnectIntervalMs(RECONNECT_BASE_MS)
 {
     instanceForCallback = this;
-    Serial.println("MaxFanMQTT: constructed");
+    Serial.println("MqttController: constructed");
 }
 
-void MaxFanMQTT::begin(const char* deviceName) {
-    Serial.println("MaxFanMQTT: begin");
+void MqttController::begin(const char* deviceName) {
+    Serial.println("MqttController: begin");
 
     (void)deviceName;
-    _mqtt.setCallback(MaxFanMQTT::mqttCallbackStatic);
+    _mqtt.setCallback(MqttController::mqttCallbackStatic);
     _forceUpdate = true;
     ensureConnected();
 }
 
-void MaxFanMQTT::setCommandCallback(CommandCallback callback) {
+void MqttController::setCommandCallback(FanController::CommandCallback callback) {
     _onCommandReceived = callback;
-    Serial.println("MaxFanMQTT: command callback registered");
+    Serial.println("MqttController: command callback registered");
 }
 
-void MaxFanMQTT::ensureConnected() {
+void MqttController::ensureConnected() {
     if (_mqtt.connected()) {
         _connected = true;
         Serial.println("connected = true");
@@ -97,7 +97,7 @@ void MaxFanMQTT::ensureConnected() {
     }
 }
 
-void MaxFanMQTT::notifyStatus(const MaxFanState& currentState) {
+void MqttController::notifyStatus(const MaxFanState& currentState) {
     
 
 
@@ -132,18 +132,18 @@ void MaxFanMQTT::notifyStatus(const MaxFanState& currentState) {
     }
 }
 
-void MaxFanMQTT::loop() {
+void MqttController::loop() {
     ensureConnected();
     if (_mqtt.connected()) {
         _mqtt.loop();
     }
 }
 
-bool MaxFanMQTT::isConnected() {
+bool MqttController::isConnected() {
     return _mqtt.connected();
 }
 
-char MaxFanMQTT::getIndicatorLetter() {
+char MqttController::getIndicatorLetter() {
     // WiFi not connected -> W
     if (WiFi.status() != WL_CONNECTED) return 'W';
 
@@ -163,11 +163,11 @@ char MaxFanMQTT::getIndicatorLetter() {
     return '\0';
 }
 
-void MaxFanMQTT::mqttCallbackStatic(char* topic, byte* payload, unsigned int length) {
+void MqttController::mqttCallbackStatic(char* topic, byte* payload, unsigned int length) {
     if (instanceForCallback) instanceForCallback->mqttCallback(topic, payload, length);
 }
 
-void MaxFanMQTT::mqttCallback(char* topic, byte* payload, unsigned int length) {
+void MqttController::mqttCallback(char* topic, byte* payload, unsigned int length) {
     Serial.printf("MQTT: Message arrived topic=%s len=%u\n", topic, length);
     String s;
     for (unsigned int i = 0; i < length; i++) s += (char)payload[i];
@@ -179,7 +179,7 @@ void MaxFanMQTT::mqttCallback(char* topic, byte* payload, unsigned int length) {
     _onCommandReceived(s);
 }
 
-bool MaxFanMQTT::isValidTopic(const char* topic) {
+bool MqttController::isValidTopic(const char* topic) {
     if (!topic) return false;
     size_t len = strlen(topic);
     if (len == 0) return false;

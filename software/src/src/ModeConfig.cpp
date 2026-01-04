@@ -40,7 +40,7 @@ ModeConfig::ModeConfig(U8G2* display, Encoder* encoder, ChordInput* input)
     
     // --- SEITEN (Statisch) ---
     _pageMain("Settings"),
-    _pageRemote("Remote Access"),
+    _pageRemote("Controller"),
     _pageWifi("Wi-Fi Settings"),
     _pageMqtt("MQTT Settings"),
     _pageBle("Bluetooth LE"),
@@ -53,7 +53,7 @@ ModeConfig::ModeConfig(U8G2* display, Encoder* encoder, ChordInput* input)
     _itemNavWifi("Wi-Fi", _pageWifi),
     _itemNavMqtt("MQTT", _pageMqtt),
     _itemNavBle("Bluetooth LE", _pageBle),
-    _itemNavRemote("Remote Access", _pageRemote),
+    _itemNavRemote("Controller", _pageRemote),
     _itemNavDisplay("Display", _pageDisplay),
     _itemNavVersion("Version", _pageVersionInfo),
     _itemNavExit("Exit", callbackCheckExit),
@@ -68,7 +68,7 @@ ModeConfig::ModeConfig(U8G2* display, Encoder* encoder, ChordInput* input)
     _itemBackFromExit("Back", callbackGoBackToMain),
 
     // --- ITEMS ---
-    _itemConnection("Connection", _editConfig.connection, selectConnection),
+    _itemConnection("Controller", _editConfig.connection, selectConnection),
     _itemSsid("SSID:", _editConfig.wifiSSID),
     _itemPassword("Password:", _editConfig.wifiPassword),
     _itemMqttHost("Host:", _editConfig.mqttHost),
@@ -107,7 +107,7 @@ ModeConfig::ModeConfig(U8G2* display, Encoder* encoder, ChordInput* input)
     _pageMain.addMenuItem(_itemNavVersion);
     _pageMain.addMenuItem(_itemNavExit);
 
-    // 2. Remote Access Page
+    // 2. Controller Page
     _pageRemote.addMenuItem(_itemConnection);
     _pageRemote.addMenuItem(_itemBackRemote); 
 

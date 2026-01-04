@@ -4,14 +4,14 @@
 #define COMMAND_UUID        "beb5483e-36e1-4688-b7f5-ea07361b26a8"
 #define STATUS_UUID         "cba1d466-344c-4be3-ab3f-1890d5c0c0c0"
 
-MaxFanBLE::MaxFanBLE() 
-  : _pServer(nullptr), _pCommandChar(nullptr), _pStatusChar(nullptr), 
-        _onCommandReceived(nullptr), _deviceConnected(false), _bonded(false), _pinCode(0),
-        _forceUpdate(true) // Starten mit erzwungenem Update
+BleController::BleController() 
+    : _pServer(nullptr), _pCommandChar(nullptr), _pStatusChar(nullptr), 
+                _onCommandReceived(nullptr), _deviceConnected(false), _bonded(false), _pinCode(0),
+                _forceUpdate(true) // Starten mit erzwungenem Update
 {
 }
 
-void MaxFanBLE::begin(const char* deviceName) {
+void BleController::begin(const char* deviceName) {
     // 1. Initialisierung
     BLEDevice::init(deviceName);
 
@@ -65,11 +65,11 @@ void MaxFanBLE::begin(const char* deviceName) {
     Serial.println("BLE: Advertising started");
 }
 
-void MaxFanBLE::setCommandCallback(CommandCallback callback) {
+void BleController::setCommandCallback(FanController::CommandCallback callback) {
     _onCommandReceived = callback;
 }
 
-void MaxFanBLE::notifyStatus(const MaxFanState& currentState) {
+void BleController::notifyStatus(const MaxFanState& currentState) {
     // 1. Wenn keiner zuhört, sofort raus
     if (!_deviceConnected || !_pStatusChar) {
         return;
@@ -98,7 +98,7 @@ void MaxFanBLE::notifyStatus(const MaxFanState& currentState) {
 
 // --- Callbacks ---
 
-void MaxFanBLE::MyServerCallbacks::onConnect(BLEServer* s) {
+void BleController::MyServerCallbacks::onConnect(BLEServer* s) {
     _parent->_deviceConnected = true;
     // WICHTIG: Wenn sich das Handy neu verbindet, kennt es den aktuellen Status nicht.
     // Wir zwingen notifyStatus() dazu, beim nächsten Mal zu senden,
@@ -107,24 +107,24 @@ void MaxFanBLE::MyServerCallbacks::onConnect(BLEServer* s) {
     Serial.println("BLE: Client verbunden.");
 }
 
-void MaxFanBLE::MyServerCallbacks::onDisconnect(BLEServer* s) {
+void BleController::MyServerCallbacks::onDisconnect(BLEServer* s) {
     _parent->_deviceConnected = false;
     Serial.println("BLE: Client getrennt.");
     BLEDevice::startAdvertising(); 
 }
 
-void MaxFanBLE::MyCharCallbacks::onWrite(BLECharacteristic* pChar) {
+void BleController::MyCharCallbacks::onWrite(BLECharacteristic* pChar) {
     std::string rxValue = pChar->getValue();
     if (rxValue.length() > 0 && _parent->_onCommandReceived) {
         _parent->_onCommandReceived(String(rxValue.c_str()));
     }
 }
 
-void MaxFanBLE::loop() {
+void BleController::loop() {
     // BLE server runs in background; nothing to do each loop for now
 }
 
-void MaxFanBLE::MySecurityCallbacks::onAuthenticationComplete(esp_ble_auth_cmpl_t cmpl) {
+void BleController::MySecurityCallbacks::onAuthenticationComplete(esp_ble_auth_cmpl_t cmpl) {
     if (_parent) {
         _parent->_bonded = (cmpl.success == 1);
         if (_parent->_bonded) {
@@ -135,13 +135,13 @@ void MaxFanBLE::MySecurityCallbacks::onAuthenticationComplete(esp_ble_auth_cmpl_
     }
 }
 
-char MaxFanBLE::getIndicatorLetter() {
+char BleController::getIndicatorLetter() {
     // If connected but not bonded -> indicate B
     if (_deviceConnected && !_bonded) return 'B';
     return '\0';
 }
 
-bool MaxFanBLE::isConnected() {
+bool BleController::isConnected() {
     // Consider connected only if device connected AND bonded
     return _deviceConnected && _bonded;
 }

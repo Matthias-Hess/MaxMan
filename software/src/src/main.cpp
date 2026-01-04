@@ -11,8 +11,8 @@
 #include <MaxFanDisplay.h> // Deine alte Display Klasse (für Standard Mode)
 #include <MaxErrors.h>
 #include "MaxFanConfig.h"
-#include "RemoteAccess.h"
-#include "NilRemote.h"
+#include "FanController.h"
+#include "NilController.h"
 
 // --- Input & Grafik ---
 #include "Encoder.h"
@@ -34,8 +34,8 @@
 
 // 1. Core Logic
 MaxFanState maxFanState;
-MaxFanBLE fanBLE;
-MaxFanMQTT fanMQTT;
+BleController fanBLE;
+MqttController fanMQTT;
 MaxRemote fanRemote(2);
 MaxReceiver fanIrReceiver(3);
 
@@ -59,8 +59,8 @@ AppMode* currentMode = nullptr;
 ModeStandard* modeStandard = nullptr;
 ModeConfig* modeConfig = nullptr;
 ModeScreenDark* modeScreenDark = nullptr;
-RemoteAccess* activeRemote = nullptr;
-NilRemote nilRemote;
+FanController* activeController = nullptr;
+NilController nilController;
 
 
 // --- Callbacks ---
@@ -136,14 +136,14 @@ void setup() {
 
     // Select active remote based on config
     if (GlobalConfig.connection == 2) {
-      activeRemote = &fanMQTT;
-      Serial.println("Using MQTT Remote Access");
+      activeController = &fanMQTT;
+      Serial.println("Using MQTT Controller");
     } else if (GlobalConfig.connection == 1) {
-      activeRemote = &fanBLE;
-      Serial.println("Using BLE Access");
+      activeController = &fanBLE;
+      Serial.println("Using BLE Controller");
     } else {
-      activeRemote = &nilRemote;
-      Serial.println("Using NilRemote (no remote)");
+      activeController = &nilController;
+      Serial.println("Using NilController (no controller)");
     }
 
   // 2. Modi Instanziieren (Dependency Injection)
@@ -157,7 +157,7 @@ void setup() {
       fanDisplay,     
       fanRemote, 
       fanIrReceiver, 
-      (activeRemote ? *activeRemote : fanBLE)
+      (activeController ? *activeController : fanBLE)
     );
 
   modeConfig = new ModeConfig(
@@ -174,7 +174,7 @@ void setup() {
       maxFanState,
       fanRemote,
       fanIrReceiver,
-      (activeRemote ? *activeRemote : fanBLE)
+      (activeController ? *activeController : fanBLE)
     );
 
   // 3. Start-Modus setzen
@@ -221,7 +221,7 @@ void loop() {
   }
 
   // Ensure the active remote can service its background tasks (MQTT loop, reconnection)
-  if (activeRemote) {
-      activeRemote->loop();
+  if (activeController) {
+      activeController->loop();
   }
 }

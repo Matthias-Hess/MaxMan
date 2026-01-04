@@ -9,17 +9,17 @@
 #include <Preferences.h>
 #include <functional>
 #include "MaxFanState.h"
-#include "RemoteAccess.h"
+#include "FanController.h"
 
-class MaxFanBLE : public RemoteAccess {
+class BleController : public FanController {
 public:
-    MaxFanBLE();
+    BleController();
     
     void begin(const char* deviceName = "MaxxFan Controller");
-    void setCommandCallback(RemoteAccess::CommandCallback callback) override;
+    void setCommandCallback(FanController::CommandCallback callback) override;
     void notifyStatus(const MaxFanState& currentState) override;
     bool isConnected() override;
-    RemoteAccess::Icon getIcon() override { return RemoteAccess::ICON_BLE; }
+    FanController::Icon getIcon() override { return FanController::ICON_BLE; }
     void loop() override;
     uint32_t getPin() const { return _pinCode; }
     char getIndicatorLetter() override;
@@ -30,24 +30,24 @@ private:
     BLECharacteristic* _pStatusChar;
     MaxFanState _lastSentState; 
     bool _forceUpdate;
-    CommandCallback _onCommandReceived;
+    FanController::CommandCallback _onCommandReceived;
     bool _deviceConnected;
     bool _bonded;
     uint32_t _pinCode;
 
     // --- Interne Klassen ---
     class MyServerCallbacks : public BLEServerCallbacks {
-        MaxFanBLE* _parent;
+        BleController* _parent;
     public:
-        MyServerCallbacks(MaxFanBLE* p) : _parent(p) {}
+        MyServerCallbacks(BleController* p) : _parent(p) {}
         void onConnect(BLEServer* s) override;
         void onDisconnect(BLEServer* s) override;
     };
 
     class MyCharCallbacks : public BLECharacteristicCallbacks {
-        MaxFanBLE* _parent;
+        BleController* _parent;
     public:
-        MyCharCallbacks(MaxFanBLE* p) : _parent(p) {}
+        MyCharCallbacks(BleController* p) : _parent(p) {}
         void onWrite(BLECharacteristic* pChar) override;
     };
 
@@ -55,8 +55,8 @@ private:
     // aber ohne Kommunikation nach außen.
     class MySecurityCallbacks : public BLESecurityCallbacks {
     public:
-        MaxFanBLE* _parent;
-        MySecurityCallbacks(MaxFanBLE* p) : _parent(p) {}
+        BleController* _parent;
+        MySecurityCallbacks(BleController* p) : _parent(p) {}
         uint32_t onPassKeyRequest() override { return 0; }
         void onPassKeyNotify(uint32_t pass_key) override {}
         bool onConfirmPIN(uint32_t pass_key) override { return true; }
