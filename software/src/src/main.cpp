@@ -7,6 +7,7 @@
 #include <MaxReceiver.h>
 #include <MaxFanBLE.h>
 #include <MaxFanMQTT.h>
+#include <TimerVentilationController.h>
 #include <MaxFanState.h>
 #include <MaxFanDisplay.h> // Deine alte Display Klasse (für Standard Mode)
 #include <MaxErrors.h>
@@ -36,6 +37,7 @@
 MaxFanState maxFanState;
 BleController fanBLE;
 MqttController fanMQTT;
+TimerVentilationController timerController;
 MaxRemote fanRemote(2);
 MaxReceiver fanIrReceiver(3);
 
@@ -134,10 +136,16 @@ void setup() {
     fanMQTT.setCommandCallback(onBLECommand);
     fanMQTT.begin();
 
+    timerController.setCommandCallback(onBLECommand);
+    timerController.begin();
+
     // Select active remote based on config
     if (GlobalConfig.connection == 2) {
       activeController = &fanMQTT;
       Serial.println("Using MQTT Controller");
+    } else if (GlobalConfig.connection == 3) {
+      activeController = &timerController;
+      Serial.println("Using TIMER Controller");
     } else if (GlobalConfig.connection == 1) {
       activeController = &fanBLE;
       Serial.println("Using BLE Controller");

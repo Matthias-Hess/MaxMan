@@ -19,6 +19,11 @@ struct ConfigData {
     char mqttCommandTopic[64];
     char mqttStateTopic[64];
     bool mqttUseTls;
+    // Timer controller settings
+    int timerRunForSeconds;
+    char timerAirflow[8];
+    int timerPercent;
+    int timerPauseForSeconds;
 
     bool operator==(const ConfigData& other) const {
         return (connection == other.connection) &&
@@ -33,7 +38,11 @@ struct ConfigData {
                (strncmp(mqttPassword, other.mqttPassword, 64) == 0) &&
                (strncmp(mqttCommandTopic, other.mqttCommandTopic, 64) == 0) &&
                (strncmp(mqttStateTopic, other.mqttStateTopic, 64) == 0) &&
-               (mqttUseTls == other.mqttUseTls);
+               (mqttUseTls == other.mqttUseTls) &&
+               (timerRunForSeconds == other.timerRunForSeconds) &&
+               (strncmp(timerAirflow, other.timerAirflow, sizeof(timerAirflow)) == 0) &&
+               (timerPercent == other.timerPercent) &&
+               (timerPauseForSeconds == other.timerPauseForSeconds);
     }
     
     bool operator!=(const ConfigData& other) const {

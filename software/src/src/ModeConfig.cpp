@@ -14,7 +14,8 @@ ModeConfig* ModeConfig::instance = nullptr;
 SelectOptionInt optionsConnection[] = {
     {"None", 0},
     {"BLE",  1},
-    {"MQTT", 2}
+    {"MQTT", 2},
+    {"TIMER", 3}
 };
 
 SelectOptionInt optionsTimeout[] = {
@@ -26,8 +27,42 @@ SelectOptionInt optionsTimeout[] = {
     {"5min", 300}
 };
 
-GEMSelect selectConnection(3, optionsConnection);
+GEMSelect selectConnection(4, optionsConnection);
 GEMSelect selectTimeout(6, optionsTimeout);
+
+// Timer options
+SelectOptionInt optionsTimerRunFor[] = {
+    {"1min", 60},
+    {"2min", 120},
+    {"3min", 180},
+    {"4min", 240},
+    {"5min", 300},
+    {"10min", 600},
+    {"15min", 900},
+    {"20min", 1200},
+    {"30min", 1800}
+};
+
+SelectOptionChar optionsTimerAirflow[] = {
+    {"IN", "IN"},
+    {"OUT", "OUT"}
+};
+
+SelectOptionInt optionsTimerPercent[] = {
+    {"10", 10}, {"20", 20}, {"30", 30}, {"40", 40}, {"50", 50},
+    {"60", 60}, {"70", 70}, {"80", 80}, {"90", 90}, {"100", 100}
+};
+
+SelectOptionInt optionsTimerPauseFor[] = {
+    {"1min", 60}, {"5min", 300}, {"10min", 600}, {"15min", 900},
+    {"30min", 1800}, {"1h", 3600}, {"2h", 7200}, {"3h", 10800},
+    {"6h", 21600}, {"12h", 43200}, {"24h", 86400}
+};
+
+GEMSelect selectTimerRunFor(sizeof(optionsTimerRunFor)/sizeof(optionsTimerRunFor[0]), optionsTimerRunFor, true);
+GEMSelect selectTimerAirflow(sizeof(optionsTimerAirflow)/sizeof(optionsTimerAirflow[0]), optionsTimerAirflow, true);
+GEMSelect selectTimerPercent(sizeof(optionsTimerPercent)/sizeof(optionsTimerPercent[0]), optionsTimerPercent, true);
+GEMSelect selectTimerPauseFor(sizeof(optionsTimerPauseFor)/sizeof(optionsTimerPauseFor[0]), optionsTimerPauseFor, true);
 
 // -----------------------------------------------------------
 // KONSTRUKTOR
@@ -40,6 +75,7 @@ ModeConfig::ModeConfig(U8G2* display, Encoder* encoder, ChordInput* input)
     
     // --- SEITEN (Statisch) ---
     _pageMain("Settings"),
+    _pageTimer("Timer"),
     _pageRemote("Controller"),
     _pageWifi("Wi-Fi Settings"),
     _pageMqtt("MQTT Settings"),
@@ -54,12 +90,14 @@ ModeConfig::ModeConfig(U8G2* display, Encoder* encoder, ChordInput* input)
     _itemNavMqtt("MQTT", _pageMqtt),
     _itemNavBle("Bluetooth LE", _pageBle),
     _itemNavRemote("Controller", _pageRemote),
+    _itemNavTimer("Timer", _pageTimer),
     _itemNavDisplay("Display", _pageDisplay),
     _itemNavVersion("Version", _pageVersionInfo),
     _itemNavExit("Exit", callbackCheckExit),
 
     // --- BACK BUTTONS ---
     _itemBackRemote("Back", callbackGoBackToMain),
+    _itemBackTimer("Back", callbackGoBackToMain),
     _itemBackWifi("Back", callbackGoBackToMain),
     _itemBackMqtt("Back", callbackGoBackToMain),
     _itemBackBle("Back", callbackGoBackToMain),
@@ -82,6 +120,10 @@ ModeConfig::ModeConfig(U8G2* display, Encoder* encoder, ChordInput* input)
     _itemTestMqtt("Test Connection", callbackTestMqtt),
     _itemBlePin("PIN:", _editConfig.blePin),
     _itemGenerateNewPIN("Generate new PIN", callbackGenerateNewPIN),
+    _itemTimerRunFor("Run For", _editConfig.timerRunForSeconds, selectTimerRunFor),
+    _itemTimerAirflow("Airflow", _editConfig.timerAirflow, selectTimerAirflow),
+    _itemTimerPercent("Percent", _editConfig.timerPercent, selectTimerPercent),
+    _itemTimerPauseFor("Pause for", _editConfig.timerPauseForSeconds, selectTimerPauseFor),
     _itemDisplayTimeoutSeconds("Dim after", _editConfig.displayTimeoutSeconds, selectTimeout),
     _itemCurrentVersion("Installed:", APP_VERSION, true), 
     _itemCheckUpdates("Check for Updates", callbackCheckForUpdates),
@@ -103,6 +145,7 @@ ModeConfig::ModeConfig(U8G2* display, Encoder* encoder, ChordInput* input)
     _pageMain.addMenuItem(_itemNavMqtt);
     _pageMain.addMenuItem(_itemNavBle);
     _pageMain.addMenuItem(_itemNavRemote);
+    _pageMain.addMenuItem(_itemNavTimer);
     _pageMain.addMenuItem(_itemNavDisplay);
     _pageMain.addMenuItem(_itemNavVersion);
     _pageMain.addMenuItem(_itemNavExit);
@@ -110,6 +153,13 @@ ModeConfig::ModeConfig(U8G2* display, Encoder* encoder, ChordInput* input)
     // 2. Controller Page
     _pageRemote.addMenuItem(_itemConnection);
     _pageRemote.addMenuItem(_itemBackRemote); 
+
+    // 2b. Timer Page
+    _pageTimer.addMenuItem(_itemTimerRunFor);
+    _pageTimer.addMenuItem(_itemTimerAirflow);
+    _pageTimer.addMenuItem(_itemTimerPercent);
+    _pageTimer.addMenuItem(_itemTimerPauseFor);
+    _pageTimer.addMenuItem(_itemBackTimer);
 
     // 3. Wi-Fi Page
     _pageWifi.addMenuItem(_itemSsid);

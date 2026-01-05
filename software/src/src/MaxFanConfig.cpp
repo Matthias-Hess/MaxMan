@@ -78,6 +78,16 @@ void ConfigManager::load() {
 
     GlobalConfig.mqttUseTls = prefs.getBool("mqttUseTls", false);
 
+    // Timer controller defaults
+    GlobalConfig.timerRunForSeconds = prefs.getInt("timerRunFor", 60);
+    {
+        String airflow = prefs.getString("timerAirflow", "IN");
+        strncpy(GlobalConfig.timerAirflow, airflow.c_str(), sizeof(GlobalConfig.timerAirflow));
+        GlobalConfig.timerAirflow[sizeof(GlobalConfig.timerAirflow)-1] = '\0';
+    }
+    GlobalConfig.timerPercent = prefs.getInt("timerPercent", 80);
+    GlobalConfig.timerPauseForSeconds = prefs.getInt("timerPauseFor", 3600);
+
     prefs.end();
     Serial.println("ConfigManager: Config geladen.");
 }
@@ -102,6 +112,11 @@ void ConfigManager::saveAndReboot(const ConfigData& newData) {
     prefs.putString("mqttCommandTopic", newData.mqttCommandTopic);
     prefs.putString("mqttStateTopic", newData.mqttStateTopic);
     prefs.putBool("mqttUseTls", newData.mqttUseTls);
+    // Timer controller
+    prefs.putInt("timerRunFor", newData.timerRunForSeconds);
+    prefs.putString("timerAirflow", newData.timerAirflow);
+    prefs.putInt("timerPercent", newData.timerPercent);
+    prefs.putInt("timerPauseFor", newData.timerPauseForSeconds);
     prefs.end();
 
     // Der intelligente Check: Wurde der PIN geändert?

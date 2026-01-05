@@ -15,7 +15,7 @@ public:
     virtual void loop() = 0;
     virtual bool isConnected() = 0;
     // Icon type for display
-    enum Icon { ICON_NONE = 0, ICON_BLE = 1, ICON_MQTT = 2 };
+    enum Icon { ICON_NONE = 0, ICON_BLE = 1, ICON_MQTT = 2, ICON_TIMER = 3 };
 
     // Returns the icon to use for display.
     virtual Icon getIcon() = 0;

@@ -70,6 +70,12 @@ bool tryParseFanDirection(const char* str, MaxFanDirection& outDir) {
     return false;
 }
 
+MaxFanDirection toMaxFanDirection(const std::string& str) {
+  MaxFanDirection d = MaxFanDirection::IN;
+  if (tryParseFanDirection(str.c_str(), d)) return d;
+  return MaxFanDirection::IN;
+}
+
 std::string toString(CoverState mode) {
     switch(mode) {
         case CoverState::OPEN: return "OPEN";

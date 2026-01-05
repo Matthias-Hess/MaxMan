@@ -34,6 +34,7 @@ private:
     // --- SEITEN (PAGES) ---
     GEMPage _pageMain;          
     GEMPage _pageRemote;        
+    GEMPage _pageTimer;         
     GEMPage _pageWifi;          
     GEMPage _pageBle;           
     GEMPage _pageMqtt;         
@@ -46,6 +47,7 @@ private:
 
     // --- NAVIGATION ITEMS ---
     GEMItem _itemNavRemote;
+    GEMItem _itemNavTimer;
     GEMItem _itemNavWifi;
     GEMItem _itemNavMqtt;
     GEMItem _itemNavBle;
@@ -55,6 +57,7 @@ private:
 
     // --- BACK BUTTONS ---
     GEMItem _itemBackRemote;
+    GEMItem _itemBackTimer;
     GEMItem _itemBackWifi;
     GEMItem _itemBackMqtt;
     GEMItem _itemBackBle;
@@ -77,6 +80,10 @@ private:
     GEMItem _itemTestMqtt;
     GEMItem _itemBlePin;
     GEMItem _itemGenerateNewPIN;
+    GEMItem _itemTimerRunFor;
+    GEMItem _itemTimerAirflow;
+    GEMItem _itemTimerPercent;
+    GEMItem _itemTimerPauseFor;
     GEMItem _itemDisplayTimeoutSeconds;
     GEMItem _itemCurrentVersion; 
     GEMItem _itemCheckUpdates;   

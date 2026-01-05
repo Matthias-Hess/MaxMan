@@ -13,6 +13,7 @@ static const unsigned char image_out_bits[] U8X8_PROGMEM = {0x00,0x00,0x40,0x00,
 
 static const unsigned char image_BTConnected_bits[] U8X8_PROGMEM = {0x10,0x31,0x52,0x94,0x58,0x38,0x54,0x92,0x51,0x30,0x10};
 static const unsigned char image_mqtt_bits[] U8X8_PROGMEM = {0x4f,0x10,0x27,0x48,0x53,0x57,0x57};
+static const unsigned char image_shock_bits[] U8X8_PROGMEM = {0x7c,0x00,0x7c,0x00,0x82,0x00,0x11,0x01,0x51,0x01,0x71,0x01,0x01,0x01,0x01,0x01,0x82,0x00,0x7c,0x00,0x7c,0x00};
 
 MaxFanDisplay::MaxFanDisplay(uint8_t sda, uint8_t scl) 
 : _u8g2(U8G2_R0, U8X8_PIN_NONE), _sda(sda), _scl(scl) {}
@@ -172,6 +173,27 @@ void MaxFanDisplay::update(const MaxFanState& state, FanController::Icon icon, b
         } else {
             _u8g2.setDrawColor(1);
             _u8g2.drawXBMP(iconX, iconY, iconW, iconH, image_BTConnected_bits);
+        }
+    }
+    else if (icon == FanController::ICON_TIMER) {
+        const int iconW = 16;
+        const int iconH = 11;
+        const int iconX = 108;
+        const int iconY = 18;
+        if (indicator != '\0') {
+            _u8g2.setFont(u8g2_font_t0_11_tr);
+            _u8g2.setDrawColor(1);
+            _u8g2.drawStr(iconX - 10, iconY + (iconH / 2) + 4, String(indicator).c_str());
+            _u8g2.setDrawColor(1);
+            _u8g2.drawXBMP(iconX, iconY, iconW, iconH, image_shock_bits);
+        } else if (isConnected) {
+            _u8g2.setDrawColor(1);
+            _u8g2.drawBox(iconX - 2, iconY - 2, iconW + 4, iconH + 4);
+            _u8g2.setDrawColor(2);
+            _u8g2.drawXBMP(iconX, iconY, iconW, iconH, image_shock_bits);
+        } else {
+            _u8g2.setDrawColor(1);
+            _u8g2.drawXBMP(iconX, iconY, iconW, iconH, image_shock_bits);
         }
     }
 
