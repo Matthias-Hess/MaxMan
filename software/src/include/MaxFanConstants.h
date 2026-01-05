@@ -17,8 +17,9 @@ namespace MaxFan {
 
 }
 
-#define ENCODER_BUTTON 8
-#define MODE_BUTTON 10
-#define COVER_BUTTON 9
+#define ENCODER_BUTTON D8
+#define MODE_BUTTON D10
+#define COVER_BUTTON D9
+
 
 #endif // MAXFANCONSTANTS_H

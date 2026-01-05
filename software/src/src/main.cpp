@@ -2,55 +2,44 @@
 #include <Wire.h>
 #include <Preferences.h>
 #include <WiFi.h>
-// --- Deine Bibliotheken ---
 #include <MaxRemote.h>
 #include <MaxReceiver.h>
 #include <MaxFanBLE.h>
 #include <MaxFanMQTT.h>
 #include <TimerVentilationController.h>
 #include <MaxFanState.h>
-#include <MaxFanDisplay.h> // Deine alte Display Klasse (für Standard Mode)
+#include <MaxFanDisplay.h> 
 #include <MaxErrors.h>
 #include "MaxFanConfig.h"
 #include "FanController.h"
 #include "NilController.h"
-
-// --- Input & Grafik ---
 #include "Encoder.h"
 #include "ChordInput.h" 
-#include <U8g2lib.h>       // Für das Menü (wie gewünscht)
-
-// --- Die neuen App-Modes ---
+#include <U8g2lib.h>       
 #include "AppMode.h"
 #include "ModeStandard.h"
 #include "ModeConfig.h"
 #include "ModeScreenDark.h"
-
-// --- Pin Definitionen ---
-#define ENCODER_BUTTON 8
-#define MODE_BUTTON 10
-#define COVER_BUTTON 9
-
-// --- Globale Hardware Instanzen ---
+#include "MaxFanConstants.h"
 
 // 1. Core Logic
 MaxFanState maxFanState;
 BleController fanBLE;
 MqttController fanMQTT;
 TimerVentilationController timerController;
-MaxRemote fanRemote(2);
-MaxReceiver fanIrReceiver(3);
+MaxRemote fanRemote(D0);
+MaxReceiver fanIrReceiver(D1);
 
 
 // 2. Inputs
 ChordInput buttons({ENCODER_BUTTON, MODE_BUTTON, COVER_BUTTON});
-Encoder encoder(4, 5);
+Encoder encoder(D2, D3);
 
 // 3. Displays
 // ACHTUNG: Wir haben hier zwei Objekte für dasselbe Display.
 // ModeStandard nutzt 'fanDisplay' (Adafruit Wrapper), ModeConfig nutzt 'u8g2'.
 // Das funktioniert, solange man beim Umschalten sauber cleared.
-MaxFanDisplay fanDisplay(6, 7); 
+MaxFanDisplay fanDisplay(D4, D5); 
 
 // Beispiel-Konstruktor für SSD1306 via I2C (bitte an dein Display anpassen!)
 U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE);
