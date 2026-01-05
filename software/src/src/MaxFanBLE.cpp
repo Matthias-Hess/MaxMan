@@ -112,13 +112,21 @@ void BleController::MyServerCallbacks::onDisconnect(BLEServer* s) {
     Serial.println("BLE: Client getrennt.");
     BLEDevice::startAdvertising(); 
 }
-
 void BleController::MyCharCallbacks::onWrite(BLECharacteristic* pChar) {
-    std::string rxValue = pChar->getValue();
+    // ÄNDERUNG: 'String' statt 'std::string' verwenden
+    String rxValue = pChar->getValue(); 
+
     if (rxValue.length() > 0 && _parent->_onCommandReceived) {
-        _parent->_onCommandReceived(String(rxValue.c_str()));
+        // ÄNDERUNG: Wir können 'rxValue' jetzt direkt übergeben, da es schon ein String ist
+        _parent->_onCommandReceived(rxValue);
     }
 }
+//void BleController::MyCharCallbacks::onWrite(BLECharacteristic* pChar) {
+//    std::string rxValue = pChar->getValue();
+//    if (rxValue.length() > 0 && _parent->_onCommandReceived) {
+//        _parent->_onCommandReceived(String(rxValue.c_str()));
+//    }
+//}
 
 void BleController::loop() {
     // BLE server runs in background; nothing to do each loop for now
