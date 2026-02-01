@@ -1,4 +1,4 @@
-26772613076946536
+26784993927040281
 Audio_Module
 Reverb_BTDR-1H
 Digital Reverberation Unit, http://www.belton.co.kr/inc/downfile.php?seq=17&file=pdf (footprint from http://www.uk-electronic.de/PDF/BTDR-1.pdf)
@@ -2810,6 +2810,13 @@ Buzzer_Beeper
 Speaker_CUI_CMR-1206S-67
 Speaker, 30mW, 300-7000Hz, IP67 face, 12x6x2,25mm, https://www.cuidevices.com/product/resource/cmr-12062s-67.pdf
 speaker CUI
+0
+2
+2
+CAP_EEEFK1V470P
+CAP_EEEFK1V470P
+
+
 0
 2
 2
@@ -59352,6 +59359,13 @@ ceramic
 0
 3
 3
+DIONM5436X261N
+DIONM5436X261N
+DO-214AA__
+TVS Diode (Uni-directional)
+0
+2
+2
 Diode_SMD
 D_0201_0603Metric
 Diode SMD 0201 (0603 Metric), square (rectangular) end terminal, IPC-7351 nominal, (Body size source: https://www.vishay.com/docs/20052/crcw0201e3.pdf), generated with kicad-footprint-generator
@@ -61375,6 +61389,13 @@ One digit LED 7 segment SA39-11 SC39-11 SA39-12 SC39-12
 0
 10
 10
+FUSC3216X100N
+FUSC3216X100N
+1206L025
+Resettable Fuse
+0
+2
+2
 Ferrite_THT
 LairdTech_28C0236-0JW-10
 Ferrite, vertical, LairdTech 28C0236-0JW-10, https://assets.lairdtech.com/home/brandworld/files/28C0236-0JW-10.pdf, JW Miller core https://www.bourns.com/products/magnetic-products/j.w.-miller-through-hole-ferrite-beads-emi-filters
@@ -70573,6 +70594,13 @@ Yellow 5381 Series LED
 0
 2
 2
+LMR50410XDBVR
+SOT95P280X145-6N
+LMR50410XDBVR
+Power Supply
+0
+6
+6
 Library
 RotaryEncoder
 
@@ -93673,6 +93701,13 @@ Potentiometer vertical vishay
 0
 3
 3
+RB168MM40TFTR
+RB168MM40TFTR
+RB168MM-40TFTR-1
+Schottky Diode
+0
+2
+2
 RF
 Skyworks_SKY13575_639LF
 http://www.skyworksinc.com/uploads/documents/SKY13575_639LF_203270D.pdf
@@ -97296,6 +97331,13 @@ SFH_4544
 SFH213FA
 SFH 213 FA-1
 Undefined or Miscellaneous
+0
+2
+2
+SRN5040
+SRN5040
+SRN5040
+Inductor
 0
 2
 2
@@ -105615,6 +105657,13 @@ igbt diode module
 0
 25
 25
+VSMY2940RGX01
+VSMY2940RGX01
+2-SMD, Z-Bend_2024
+LED
+0
+2
+2
 Valve
 Valve_ECC-83-1
 Valve ECC-83-1 round pins
